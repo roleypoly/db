@@ -3,8 +3,10 @@ on:
   push:
     paths:
       - 'ent/*'
-      - 'cmd/migrate/*'
+      - 'cmd/db-tool/*'
       - '.github/workflows/ent.yml'
+      - 'go.mod'
+      - 'go.sum'
 
 jobs:
   validate:
