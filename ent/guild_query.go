@@ -224,12 +224,12 @@ func (gq *GuildQuery) Clone() *GuildQuery {
 // Example:
 //
 //	var v []struct {
-//		Snowflake string `json:"snowflake,omitempty"`
+//		CreatedAt time.Time `json:"created_at,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.Guild.Query().
-//		GroupBy(guild.FieldSnowflake).
+//		GroupBy(guild.FieldCreatedAt).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 //
@@ -245,11 +245,11 @@ func (gq *GuildQuery) GroupBy(field string, fields ...string) *GuildGroupBy {
 // Example:
 //
 //	var v []struct {
-//		Snowflake string `json:"snowflake,omitempty"`
+//		CreatedAt time.Time `json:"created_at,omitempty"`
 //	}
 //
 //	client.Guild.Query().
-//		Select(guild.FieldSnowflake).
+//		Select(guild.FieldCreatedAt).
 //		Scan(ctx, &v)
 //
 func (gq *GuildQuery) Select(field string, fields ...string) *GuildSelect {

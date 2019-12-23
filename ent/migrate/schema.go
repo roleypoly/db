@@ -11,9 +11,12 @@ var (
 	// GuildsColumns holds the columns for the "guilds" table.
 	GuildsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "snowflake", Type: field.TypeString, Unique: true, Size: 2147483647},
 		{Name: "message", Type: field.TypeString, Size: 2147483647},
 		{Name: "categories", Type: field.TypeJSON},
+		{Name: "entitlements", Type: field.TypeJSON},
 	}
 	// GuildsTable holds the schema information for the "guilds" table.
 	GuildsTable = &schema.Table{

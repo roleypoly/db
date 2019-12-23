@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/facebookincubator/ent/dialect/sql"
 	"github.com/roleypoly/db/ent/guild"
@@ -17,14 +18,23 @@ import (
 type GuildUpdate struct {
 	config
 
-	message    *string
-	categories *[]schema.Category
-	predicates []predicate.Guild
+	updated_at *time.Time
+
+	message      *string
+	categories   *[]schema.Category
+	entitlements *[]string
+	predicates   []predicate.Guild
 }
 
 // Where adds a new predicate for the builder.
 func (gu *GuildUpdate) Where(ps ...predicate.Guild) *GuildUpdate {
 	gu.predicates = append(gu.predicates, ps...)
+	return gu
+}
+
+// SetUpdatedAt sets the updated_at field.
+func (gu *GuildUpdate) SetUpdatedAt(t time.Time) *GuildUpdate {
+	gu.updated_at = &t
 	return gu
 }
 
@@ -40,8 +50,18 @@ func (gu *GuildUpdate) SetCategories(s []schema.Category) *GuildUpdate {
 	return gu
 }
 
+// SetEntitlements sets the entitlements field.
+func (gu *GuildUpdate) SetEntitlements(s []string) *GuildUpdate {
+	gu.entitlements = &s
+	return gu
+}
+
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (gu *GuildUpdate) Save(ctx context.Context) (int, error) {
+	if gu.updated_at == nil {
+		v := guild.UpdateDefaultUpdatedAt()
+		gu.updated_at = &v
+	}
 	return gu.sqlSave(ctx)
 }
 
@@ -103,6 +123,9 @@ func (gu *GuildUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		updater = builder.Update(guild.Table)
 	)
 	updater = updater.Where(sql.InInts(guild.FieldID, ids...))
+	if value := gu.updated_at; value != nil {
+		updater.Set(guild.FieldUpdatedAt, *value)
+	}
 	if value := gu.message; value != nil {
 		updater.Set(guild.FieldMessage, *value)
 	}
@@ -112,6 +135,13 @@ func (gu *GuildUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			return 0, err
 		}
 		updater.Set(guild.FieldCategories, buf)
+	}
+	if value := gu.entitlements; value != nil {
+		buf, err := json.Marshal(*value)
+		if err != nil {
+			return 0, err
+		}
+		updater.Set(guild.FieldEntitlements, buf)
 	}
 	if !updater.Empty() {
 		query, args := updater.Query()
@@ -130,8 +160,17 @@ type GuildUpdateOne struct {
 	config
 	id int
 
-	message    *string
-	categories *[]schema.Category
+	updated_at *time.Time
+
+	message      *string
+	categories   *[]schema.Category
+	entitlements *[]string
+}
+
+// SetUpdatedAt sets the updated_at field.
+func (guo *GuildUpdateOne) SetUpdatedAt(t time.Time) *GuildUpdateOne {
+	guo.updated_at = &t
+	return guo
 }
 
 // SetMessage sets the message field.
@@ -146,8 +185,18 @@ func (guo *GuildUpdateOne) SetCategories(s []schema.Category) *GuildUpdateOne {
 	return guo
 }
 
+// SetEntitlements sets the entitlements field.
+func (guo *GuildUpdateOne) SetEntitlements(s []string) *GuildUpdateOne {
+	guo.entitlements = &s
+	return guo
+}
+
 // Save executes the query and returns the updated entity.
 func (guo *GuildUpdateOne) Save(ctx context.Context) (*Guild, error) {
+	if guo.updated_at == nil {
+		v := guild.UpdateDefaultUpdatedAt()
+		guo.updated_at = &v
+	}
 	return guo.sqlSave(ctx)
 }
 
@@ -212,6 +261,10 @@ func (guo *GuildUpdateOne) sqlSave(ctx context.Context) (gu *Guild, err error) {
 		updater = builder.Update(guild.Table)
 	)
 	updater = updater.Where(sql.InInts(guild.FieldID, ids...))
+	if value := guo.updated_at; value != nil {
+		updater.Set(guild.FieldUpdatedAt, *value)
+		gu.UpdatedAt = *value
+	}
 	if value := guo.message; value != nil {
 		updater.Set(guild.FieldMessage, *value)
 		gu.Message = *value
@@ -223,6 +276,14 @@ func (guo *GuildUpdateOne) sqlSave(ctx context.Context) (gu *Guild, err error) {
 		}
 		updater.Set(guild.FieldCategories, buf)
 		gu.Categories = *value
+	}
+	if value := guo.entitlements; value != nil {
+		buf, err := json.Marshal(*value)
+		if err != nil {
+			return nil, err
+		}
+		updater.Set(guild.FieldEntitlements, buf)
+		gu.Entitlements = *value
 	}
 	if !updater.Empty() {
 		query, args := updater.Query()

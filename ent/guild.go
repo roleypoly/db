@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/facebookincubator/ent/dialect/sql"
 	"github.com/roleypoly/db/ent/schema"
@@ -16,37 +17,56 @@ type Guild struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID int `json:"id,omitempty"`
+	// CreatedAt holds the value of the "created_at" field.
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	// UpdatedAt holds the value of the "updated_at" field.
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// Snowflake holds the value of the "snowflake" field.
 	Snowflake string `json:"snowflake,omitempty"`
 	// Message holds the value of the "message" field.
 	Message string `json:"message,omitempty"`
 	// Categories holds the value of the "categories" field.
 	Categories []schema.Category `json:"categories,omitempty"`
+	// Entitlements holds the value of the "entitlements" field.
+	Entitlements []string `json:"entitlements,omitempty"`
 }
 
 // FromRows scans the sql response data into Guild.
 func (gu *Guild) FromRows(rows *sql.Rows) error {
 	var scangu struct {
-		ID         int
-		Snowflake  sql.NullString
-		Message    sql.NullString
-		Categories []byte
+		ID           int
+		CreatedAt    sql.NullTime
+		UpdatedAt    sql.NullTime
+		Snowflake    sql.NullString
+		Message      sql.NullString
+		Categories   []byte
+		Entitlements []byte
 	}
 	// the order here should be the same as in the `guild.Columns`.
 	if err := rows.Scan(
 		&scangu.ID,
+		&scangu.CreatedAt,
+		&scangu.UpdatedAt,
 		&scangu.Snowflake,
 		&scangu.Message,
 		&scangu.Categories,
+		&scangu.Entitlements,
 	); err != nil {
 		return err
 	}
 	gu.ID = scangu.ID
+	gu.CreatedAt = scangu.CreatedAt.Time
+	gu.UpdatedAt = scangu.UpdatedAt.Time
 	gu.Snowflake = scangu.Snowflake.String
 	gu.Message = scangu.Message.String
 	if value := scangu.Categories; len(value) > 0 {
 		if err := json.Unmarshal(value, &gu.Categories); err != nil {
 			return fmt.Errorf("unmarshal field categories: %v", err)
+		}
+	}
+	if value := scangu.Entitlements; len(value) > 0 {
+		if err := json.Unmarshal(value, &gu.Entitlements); err != nil {
+			return fmt.Errorf("unmarshal field entitlements: %v", err)
 		}
 	}
 	return nil
@@ -75,12 +95,18 @@ func (gu *Guild) String() string {
 	var builder strings.Builder
 	builder.WriteString("Guild(")
 	builder.WriteString(fmt.Sprintf("id=%v", gu.ID))
+	builder.WriteString(", created_at=")
+	builder.WriteString(gu.CreatedAt.Format(time.ANSIC))
+	builder.WriteString(", updated_at=")
+	builder.WriteString(gu.UpdatedAt.Format(time.ANSIC))
 	builder.WriteString(", snowflake=")
 	builder.WriteString(gu.Snowflake)
 	builder.WriteString(", message=")
 	builder.WriteString(gu.Message)
 	builder.WriteString(", categories=")
 	builder.WriteString(fmt.Sprintf("%v", gu.Categories))
+	builder.WriteString(", entitlements=")
+	builder.WriteString(fmt.Sprintf("%v", gu.Entitlements))
 	builder.WriteByte(')')
 	return builder.String()
 }

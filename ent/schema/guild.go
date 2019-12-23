@@ -3,6 +3,7 @@ package schema
 import (
 	"github.com/facebookincubator/ent"
 	"github.com/facebookincubator/ent/schema/field"
+	"github.com/roleypoly/db/ent/mixin"
 )
 
 // Guild holds the schema definition for the Guild entity.
@@ -26,10 +27,18 @@ func (Guild) Fields() []ent.Field {
 			Immutable().Unique(),
 		field.Text("message"),
 		field.JSON("categories", []Category{}),
+		field.Strings("entitlements"),
 	}
 }
 
 // Edges of the Guild.
 func (Guild) Edges() []ent.Edge {
 	return nil
+}
+
+// Mixin of the Guild.
+func (Guild) Mixin() []ent.Mixin {
+	return []ent.Mixin{
+		mixin.TimeMixin{},
+	}
 }

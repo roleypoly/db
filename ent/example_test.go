@@ -5,6 +5,7 @@ package ent
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/facebookincubator/ent/dialect/sql"
 )
@@ -31,9 +32,12 @@ func ExampleGuild() {
 	// create guild vertex with its edges.
 	gu := client.Guild.
 		Create().
+		SetCreatedAt(time.Now()).
+		SetUpdatedAt(time.Now()).
 		SetSnowflake("string").
 		SetMessage("string").
 		SetCategories(nil).
+		SetEntitlements(nil).
 		SaveX(ctx)
 	log.Println("guild created:", gu)
 

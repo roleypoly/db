@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/facebookincubator/ent/dialect/sql"
 	"github.com/roleypoly/db/ent/guild"
@@ -15,9 +16,40 @@ import (
 // GuildCreate is the builder for creating a Guild entity.
 type GuildCreate struct {
 	config
-	snowflake  *string
-	message    *string
-	categories *[]schema.Category
+	created_at   *time.Time
+	updated_at   *time.Time
+	snowflake    *string
+	message      *string
+	categories   *[]schema.Category
+	entitlements *[]string
+}
+
+// SetCreatedAt sets the created_at field.
+func (gc *GuildCreate) SetCreatedAt(t time.Time) *GuildCreate {
+	gc.created_at = &t
+	return gc
+}
+
+// SetNillableCreatedAt sets the created_at field if the given value is not nil.
+func (gc *GuildCreate) SetNillableCreatedAt(t *time.Time) *GuildCreate {
+	if t != nil {
+		gc.SetCreatedAt(*t)
+	}
+	return gc
+}
+
+// SetUpdatedAt sets the updated_at field.
+func (gc *GuildCreate) SetUpdatedAt(t time.Time) *GuildCreate {
+	gc.updated_at = &t
+	return gc
+}
+
+// SetNillableUpdatedAt sets the updated_at field if the given value is not nil.
+func (gc *GuildCreate) SetNillableUpdatedAt(t *time.Time) *GuildCreate {
+	if t != nil {
+		gc.SetUpdatedAt(*t)
+	}
+	return gc
 }
 
 // SetSnowflake sets the snowflake field.
@@ -38,8 +70,22 @@ func (gc *GuildCreate) SetCategories(s []schema.Category) *GuildCreate {
 	return gc
 }
 
+// SetEntitlements sets the entitlements field.
+func (gc *GuildCreate) SetEntitlements(s []string) *GuildCreate {
+	gc.entitlements = &s
+	return gc
+}
+
 // Save creates the Guild in the database.
 func (gc *GuildCreate) Save(ctx context.Context) (*Guild, error) {
+	if gc.created_at == nil {
+		v := guild.DefaultCreatedAt()
+		gc.created_at = &v
+	}
+	if gc.updated_at == nil {
+		v := guild.DefaultUpdatedAt()
+		gc.updated_at = &v
+	}
 	if gc.snowflake == nil {
 		return nil, errors.New("ent: missing required field \"snowflake\"")
 	}
@@ -48,6 +94,9 @@ func (gc *GuildCreate) Save(ctx context.Context) (*Guild, error) {
 	}
 	if gc.categories == nil {
 		return nil, errors.New("ent: missing required field \"categories\"")
+	}
+	if gc.entitlements == nil {
+		return nil, errors.New("ent: missing required field \"entitlements\"")
 	}
 	return gc.sqlSave(ctx)
 }
@@ -71,6 +120,14 @@ func (gc *GuildCreate) sqlSave(ctx context.Context) (*Guild, error) {
 		return nil, err
 	}
 	insert := builder.Insert(guild.Table).Default()
+	if value := gc.created_at; value != nil {
+		insert.Set(guild.FieldCreatedAt, *value)
+		gu.CreatedAt = *value
+	}
+	if value := gc.updated_at; value != nil {
+		insert.Set(guild.FieldUpdatedAt, *value)
+		gu.UpdatedAt = *value
+	}
 	if value := gc.snowflake; value != nil {
 		insert.Set(guild.FieldSnowflake, *value)
 		gu.Snowflake = *value
@@ -86,6 +143,14 @@ func (gc *GuildCreate) sqlSave(ctx context.Context) (*Guild, error) {
 		}
 		insert.Set(guild.FieldCategories, buf)
 		gu.Categories = *value
+	}
+	if value := gc.entitlements; value != nil {
+		buf, err := json.Marshal(*value)
+		if err != nil {
+			return nil, err
+		}
+		insert.Set(guild.FieldEntitlements, buf)
+		gu.Entitlements = *value
 	}
 
 	id, err := insertLastID(ctx, tx, insert.Returning(guild.FieldID))

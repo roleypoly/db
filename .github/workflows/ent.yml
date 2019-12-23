@@ -40,7 +40,7 @@ jobs:
         uses: roleypoly/actions/dxt@master
         if: github.event_name == 'push'
         with:
-          tag: roleypoly/db-migrate:${{ github.sha }}
+          tag: roleypoly/db-tool:${{ github.sha }}
           platforms: linux/amd64
           qemu: 'false'
           push: 'true'
@@ -52,7 +52,7 @@ jobs:
           retag() {
             curl -sSL https://github.com/docker/buildx/releases/download/v0.3.0/buildx-v0.3.0.linux-amd64 > $HOME/buildx &&\
             chmod a+x $HOME/buildx &&\
-            $HOME/buildx imagetools create --tag "roleypoly/db-migrate:$1" "roleypoly/db-migrate:${{ github.sha }}" && \
+            $HOME/buildx imagetools create --tag "roleypoly/db-tool:$1" "roleypoly/db-tool:${{ github.sha }}" && \
             exit 0
           }
           test ${{ github.ref }} = "refs/heads/master" && retag latest || \
@@ -87,7 +87,7 @@ jobs:
       - name: Run Migration
         run: |
           NETWORK=$(docker network ls | grep github | tr -s ' ' ':' | cut -d':' -f2)
-          docker run -e DB_URL --network=$NETWORK roleypoly/db-migrate:${{ github.sha }}
+          docker run -e DB_URL --network=$NETWORK roleypoly/db-tool:${{ github.sha }} migrate
         env:
           DB_INIT: roleypoly-${{ github.sha }}
           DB_URL: postgresql://roleypoly:19216801@postgres:${{ job.services.postgres.ports['5432'] }}/?sslmode=disable

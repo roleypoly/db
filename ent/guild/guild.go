@@ -2,17 +2,30 @@
 
 package guild
 
+import (
+	"time"
+
+	"github.com/facebookincubator/ent"
+	"github.com/roleypoly/db/ent/schema"
+)
+
 const (
 	// Label holds the string label denoting the guild type in the database.
 	Label = "guild"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldCreatedAt holds the string denoting the created_at vertex property in the database.
+	FieldCreatedAt = "created_at"
+	// FieldUpdatedAt holds the string denoting the updated_at vertex property in the database.
+	FieldUpdatedAt = "updated_at"
 	// FieldSnowflake holds the string denoting the snowflake vertex property in the database.
 	FieldSnowflake = "snowflake"
 	// FieldMessage holds the string denoting the message vertex property in the database.
 	FieldMessage = "message"
 	// FieldCategories holds the string denoting the categories vertex property in the database.
 	FieldCategories = "categories"
+	// FieldEntitlements holds the string denoting the entitlements vertex property in the database.
+	FieldEntitlements = "entitlements"
 
 	// Table holds the table name of the guild in the database.
 	Table = "guilds"
@@ -21,7 +34,30 @@ const (
 // Columns holds all SQL columns are guild fields.
 var Columns = []string{
 	FieldID,
+	FieldCreatedAt,
+	FieldUpdatedAt,
 	FieldSnowflake,
 	FieldMessage,
 	FieldCategories,
+	FieldEntitlements,
 }
+
+var (
+	mixin       = schema.Guild{}.Mixin()
+	mixinFields = [...][]ent.Field{
+		mixin[0].Fields(),
+	}
+	fields = schema.Guild{}.Fields()
+
+	// descCreatedAt is the schema descriptor for created_at field.
+	descCreatedAt = mixinFields[0][0].Descriptor()
+	// DefaultCreatedAt holds the default value on creation for the created_at field.
+	DefaultCreatedAt = descCreatedAt.Default.(func() time.Time)
+
+	// descUpdatedAt is the schema descriptor for updated_at field.
+	descUpdatedAt = mixinFields[0][1].Descriptor()
+	// DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	DefaultUpdatedAt = descUpdatedAt.Default.(func() time.Time)
+	// UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	UpdateDefaultUpdatedAt = descUpdatedAt.UpdateDefault.(func() time.Time)
+)
