@@ -46,7 +46,7 @@ jobs:
           platforms: linux/amd64
           qemu: 'false'
           push: 'true'
-          dockerfile: ./cmd/migrate/Dockerfile
+          dockerfile: ./cmd/db-tool/Dockerfile
 
       - name: Retag Image
         if: github.event_name == 'push'
