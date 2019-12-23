@@ -8,6 +8,7 @@ import (
 
 	_ "github.com/lib/pq"
 	ent "github.com/roleypoly/db/ent"
+	"github.com/roleypoly/db/ent/migrate"
 )
 
 func retryMigrate(client *ent.Client) {
@@ -25,7 +26,7 @@ func retryMigrate(client *ent.Client) {
 	return
 }
 
-func migrate() {
+func doMigrate() {
 	log.Println("Migrations starting.")
 
 	client, err := ent.Open("postgres", os.Getenv("DB_URL"))
@@ -47,7 +48,7 @@ func main() {
 
 	switch tool {
 	case "migrate":
-		migrate()
+		doMigrate()
 	case "import":
 		importFromV1()
 	default:
