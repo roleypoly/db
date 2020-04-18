@@ -9,7 +9,9 @@ import (
 
 	"github.com/roleypoly/db/ent/migrate"
 
+	"github.com/roleypoly/db/ent/challenge"
 	"github.com/roleypoly/db/ent/guild"
+	"github.com/roleypoly/db/ent/session"
 
 	"github.com/facebookincubator/ent/dialect"
 	"github.com/facebookincubator/ent/dialect/sql"
@@ -20,8 +22,12 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// Challenge is the client for interacting with the Challenge builders.
+	Challenge *ChallengeClient
 	// Guild is the client for interacting with the Guild builders.
 	Guild *GuildClient
+	// Session is the client for interacting with the Session builders.
+	Session *SessionClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -29,9 +35,11 @@ func NewClient(opts ...Option) *Client {
 	c := config{log: log.Println}
 	c.options(opts...)
 	return &Client{
-		config: c,
-		Schema: migrate.NewSchema(c.driver),
-		Guild:  NewGuildClient(c),
+		config:    c,
+		Schema:    migrate.NewSchema(c.driver),
+		Challenge: NewChallengeClient(c),
+		Guild:     NewGuildClient(c),
+		Session:   NewSessionClient(c),
 	}
 }
 
@@ -63,15 +71,17 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	}
 	cfg := config{driver: tx, log: c.log, debug: c.debug}
 	return &Tx{
-		config: cfg,
-		Guild:  NewGuildClient(cfg),
+		config:    cfg,
+		Challenge: NewChallengeClient(cfg),
+		Guild:     NewGuildClient(cfg),
+		Session:   NewSessionClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Guild.
+//		Challenge.
 //		Query().
 //		Count(ctx)
 //
@@ -81,15 +91,81 @@ func (c *Client) Debug() *Client {
 	}
 	cfg := config{driver: dialect.Debug(c.driver, c.log), log: c.log, debug: true}
 	return &Client{
-		config: cfg,
-		Schema: migrate.NewSchema(cfg.driver),
-		Guild:  NewGuildClient(cfg),
+		config:    cfg,
+		Schema:    migrate.NewSchema(cfg.driver),
+		Challenge: NewChallengeClient(cfg),
+		Guild:     NewGuildClient(cfg),
+		Session:   NewSessionClient(cfg),
 	}
 }
 
 // Close closes the database connection and prevents new queries from starting.
 func (c *Client) Close() error {
 	return c.driver.Close()
+}
+
+// ChallengeClient is a client for the Challenge schema.
+type ChallengeClient struct {
+	config
+}
+
+// NewChallengeClient returns a client for the Challenge from the given config.
+func NewChallengeClient(c config) *ChallengeClient {
+	return &ChallengeClient{config: c}
+}
+
+// Create returns a create builder for Challenge.
+func (c *ChallengeClient) Create() *ChallengeCreate {
+	return &ChallengeCreate{config: c.config}
+}
+
+// Update returns an update builder for Challenge.
+func (c *ChallengeClient) Update() *ChallengeUpdate {
+	return &ChallengeUpdate{config: c.config}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ChallengeClient) UpdateOne(ch *Challenge) *ChallengeUpdateOne {
+	return c.UpdateOneID(ch.ID)
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ChallengeClient) UpdateOneID(id int) *ChallengeUpdateOne {
+	return &ChallengeUpdateOne{config: c.config, id: id}
+}
+
+// Delete returns a delete builder for Challenge.
+func (c *ChallengeClient) Delete() *ChallengeDelete {
+	return &ChallengeDelete{config: c.config}
+}
+
+// DeleteOne returns a delete builder for the given entity.
+func (c *ChallengeClient) DeleteOne(ch *Challenge) *ChallengeDeleteOne {
+	return c.DeleteOneID(ch.ID)
+}
+
+// DeleteOneID returns a delete builder for the given id.
+func (c *ChallengeClient) DeleteOneID(id int) *ChallengeDeleteOne {
+	return &ChallengeDeleteOne{c.Delete().Where(challenge.ID(id))}
+}
+
+// Create returns a query builder for Challenge.
+func (c *ChallengeClient) Query() *ChallengeQuery {
+	return &ChallengeQuery{config: c.config}
+}
+
+// Get returns a Challenge entity by its id.
+func (c *ChallengeClient) Get(ctx context.Context, id int) (*Challenge, error) {
+	return c.Query().Where(challenge.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ChallengeClient) GetX(ctx context.Context, id int) *Challenge {
+	ch, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return ch
 }
 
 // GuildClient is a client for the Guild schema.
@@ -154,4 +230,68 @@ func (c *GuildClient) GetX(ctx context.Context, id int) *Guild {
 		panic(err)
 	}
 	return gu
+}
+
+// SessionClient is a client for the Session schema.
+type SessionClient struct {
+	config
+}
+
+// NewSessionClient returns a client for the Session from the given config.
+func NewSessionClient(c config) *SessionClient {
+	return &SessionClient{config: c}
+}
+
+// Create returns a create builder for Session.
+func (c *SessionClient) Create() *SessionCreate {
+	return &SessionCreate{config: c.config}
+}
+
+// Update returns an update builder for Session.
+func (c *SessionClient) Update() *SessionUpdate {
+	return &SessionUpdate{config: c.config}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SessionClient) UpdateOne(s *Session) *SessionUpdateOne {
+	return c.UpdateOneID(s.ID)
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SessionClient) UpdateOneID(id int) *SessionUpdateOne {
+	return &SessionUpdateOne{config: c.config, id: id}
+}
+
+// Delete returns a delete builder for Session.
+func (c *SessionClient) Delete() *SessionDelete {
+	return &SessionDelete{config: c.config}
+}
+
+// DeleteOne returns a delete builder for the given entity.
+func (c *SessionClient) DeleteOne(s *Session) *SessionDeleteOne {
+	return c.DeleteOneID(s.ID)
+}
+
+// DeleteOneID returns a delete builder for the given id.
+func (c *SessionClient) DeleteOneID(id int) *SessionDeleteOne {
+	return &SessionDeleteOne{c.Delete().Where(session.ID(id))}
+}
+
+// Create returns a query builder for Session.
+func (c *SessionClient) Query() *SessionQuery {
+	return &SessionQuery{config: c.config}
+}
+
+// Get returns a Session entity by its id.
+func (c *SessionClient) Get(ctx context.Context, id int) (*Session, error) {
+	return c.Query().Where(session.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SessionClient) GetX(ctx context.Context, id int) *Session {
+	s, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return s
 }

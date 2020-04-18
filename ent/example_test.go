@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/facebookincubator/ent/dialect/sql"
+
+	"github.com/roleypoly/db/ent/challenge"
+	"github.com/roleypoly/db/ent/session"
 )
 
 // dsn for the database. In order to run the tests locally, run the following command:
@@ -16,6 +19,35 @@ import (
 //
 var dsn string
 
+func ExampleChallenge() {
+	if dsn == "" {
+		return
+	}
+	ctx := context.Background()
+	drv, err := sql.Open("mysql", dsn)
+	if err != nil {
+		log.Fatalf("failed creating database client: %v", err)
+	}
+	defer drv.Close()
+	client := NewClient(Driver(drv))
+	// creating vertices for the challenge's edges.
+
+	// create challenge vertex with its edges.
+	c := client.Challenge.
+		Create().
+		SetCreatedAt(time.Now()).
+		SetUpdatedAt(time.Now()).
+		SetChallengeID("string").
+		SetUserID("string").
+		SetSource(challenge.SourceOauth).
+		SetExpiresAt(time.Now()).
+		SaveX(ctx)
+	log.Println("challenge created:", c)
+
+	// query edges.
+
+	// Output:
+}
 func ExampleGuild() {
 	if dsn == "" {
 		return
@@ -40,6 +72,35 @@ func ExampleGuild() {
 		SetEntitlements(nil).
 		SaveX(ctx)
 	log.Println("guild created:", gu)
+
+	// query edges.
+
+	// Output:
+}
+func ExampleSession() {
+	if dsn == "" {
+		return
+	}
+	ctx := context.Background()
+	drv, err := sql.Open("mysql", dsn)
+	if err != nil {
+		log.Fatalf("failed creating database client: %v", err)
+	}
+	defer drv.Close()
+	client := NewClient(Driver(drv))
+	// creating vertices for the session's edges.
+
+	// create session vertex with its edges.
+	s := client.Session.
+		Create().
+		SetCreatedAt(time.Now()).
+		SetUpdatedAt(time.Now()).
+		SetSessionID("string").
+		SetUserID("string").
+		SetSource(session.SourceOauth).
+		SetExpiresAt(time.Now()).
+		SaveX(ctx)
+	log.Println("session created:", s)
 
 	// query edges.
 

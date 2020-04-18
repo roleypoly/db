@@ -12,8 +12,12 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
+	// Challenge is the client for interacting with the Challenge builders.
+	Challenge *ChallengeClient
 	// Guild is the client for interacting with the Guild builders.
 	Guild *GuildClient
+	// Session is the client for interacting with the Session builders.
+	Session *SessionClient
 }
 
 // Commit commits the transaction.
@@ -29,9 +33,11 @@ func (tx *Tx) Rollback() error {
 // Client returns a Client that binds to current transaction.
 func (tx *Tx) Client() *Client {
 	return &Client{
-		config: tx.config,
-		Schema: migrate.NewSchema(tx.driver),
-		Guild:  NewGuildClient(tx.config),
+		config:    tx.config,
+		Schema:    migrate.NewSchema(tx.driver),
+		Challenge: NewChallengeClient(tx.config),
+		Guild:     NewGuildClient(tx.config),
+		Session:   NewSessionClient(tx.config),
 	}
 }
 
@@ -42,7 +48,7 @@ func (tx *Tx) Client() *Client {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: Guild.QueryXXX(), the query will be executed
+// applies a query, for example: Challenge.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

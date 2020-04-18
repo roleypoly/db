@@ -6,5 +6,11 @@ import (
 	"github.com/facebookincubator/ent/dialect/sql"
 )
 
+// Challenge is the predicate function for challenge builders.
+type Challenge func(*sql.Selector)
+
 // Guild is the predicate function for guild builders.
 type Guild func(*sql.Selector)
+
+// Session is the predicate function for session builders.
+type Session func(*sql.Selector)
