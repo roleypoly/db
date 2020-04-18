@@ -6,7 +6,6 @@ import (
 	"context"
 
 	"github.com/facebookincubator/ent/dialect"
-	"github.com/roleypoly/db/ent/migrate"
 )
 
 // Tx is a transactional client that is created by calling Client.Tx().
@@ -32,13 +31,15 @@ func (tx *Tx) Rollback() error {
 
 // Client returns a Client that binds to current transaction.
 func (tx *Tx) Client() *Client {
-	return &Client{
-		config:    tx.config,
-		Schema:    migrate.NewSchema(tx.driver),
-		Challenge: NewChallengeClient(tx.config),
-		Guild:     NewGuildClient(tx.config),
-		Session:   NewSessionClient(tx.config),
-	}
+	client := &Client{config: tx.config}
+	client.init()
+	return client
+}
+
+func (tx *Tx) init() {
+	tx.Challenge = NewChallengeClient(tx.config)
+	tx.Guild = NewGuildClient(tx.config)
+	tx.Session = NewSessionClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

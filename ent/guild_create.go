@@ -4,11 +4,12 @@ package ent
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
-	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
+	"github.com/facebookincubator/ent/schema/field"
 	"github.com/roleypoly/db/ent/guild"
 	"github.com/roleypoly/db/ent/schema"
 )
@@ -16,17 +17,13 @@ import (
 // GuildCreate is the builder for creating a Guild entity.
 type GuildCreate struct {
 	config
-	created_at   *time.Time
-	updated_at   *time.Time
-	snowflake    *string
-	message      *string
-	categories   *[]schema.Category
-	entitlements *[]string
+	mutation *GuildMutation
+	hooks    []Hook
 }
 
 // SetCreatedAt sets the created_at field.
 func (gc *GuildCreate) SetCreatedAt(t time.Time) *GuildCreate {
-	gc.created_at = &t
+	gc.mutation.SetCreatedAt(t)
 	return gc
 }
 
@@ -40,7 +37,7 @@ func (gc *GuildCreate) SetNillableCreatedAt(t *time.Time) *GuildCreate {
 
 // SetUpdatedAt sets the updated_at field.
 func (gc *GuildCreate) SetUpdatedAt(t time.Time) *GuildCreate {
-	gc.updated_at = &t
+	gc.mutation.SetUpdatedAt(t)
 	return gc
 }
 
@@ -54,51 +51,74 @@ func (gc *GuildCreate) SetNillableUpdatedAt(t *time.Time) *GuildCreate {
 
 // SetSnowflake sets the snowflake field.
 func (gc *GuildCreate) SetSnowflake(s string) *GuildCreate {
-	gc.snowflake = &s
+	gc.mutation.SetSnowflake(s)
 	return gc
 }
 
 // SetMessage sets the message field.
 func (gc *GuildCreate) SetMessage(s string) *GuildCreate {
-	gc.message = &s
+	gc.mutation.SetMessage(s)
 	return gc
 }
 
 // SetCategories sets the categories field.
 func (gc *GuildCreate) SetCategories(s []schema.Category) *GuildCreate {
-	gc.categories = &s
+	gc.mutation.SetCategories(s)
 	return gc
 }
 
 // SetEntitlements sets the entitlements field.
 func (gc *GuildCreate) SetEntitlements(s []string) *GuildCreate {
-	gc.entitlements = &s
+	gc.mutation.SetEntitlements(s)
 	return gc
 }
 
 // Save creates the Guild in the database.
 func (gc *GuildCreate) Save(ctx context.Context) (*Guild, error) {
-	if gc.created_at == nil {
+	if _, ok := gc.mutation.CreatedAt(); !ok {
 		v := guild.DefaultCreatedAt()
-		gc.created_at = &v
+		gc.mutation.SetCreatedAt(v)
 	}
-	if gc.updated_at == nil {
+	if _, ok := gc.mutation.UpdatedAt(); !ok {
 		v := guild.DefaultUpdatedAt()
-		gc.updated_at = &v
+		gc.mutation.SetUpdatedAt(v)
 	}
-	if gc.snowflake == nil {
+	if _, ok := gc.mutation.Snowflake(); !ok {
 		return nil, errors.New("ent: missing required field \"snowflake\"")
 	}
-	if gc.message == nil {
+	if _, ok := gc.mutation.Message(); !ok {
 		return nil, errors.New("ent: missing required field \"message\"")
 	}
-	if gc.categories == nil {
+	if _, ok := gc.mutation.Categories(); !ok {
 		return nil, errors.New("ent: missing required field \"categories\"")
 	}
-	if gc.entitlements == nil {
+	if _, ok := gc.mutation.Entitlements(); !ok {
 		return nil, errors.New("ent: missing required field \"entitlements\"")
 	}
-	return gc.sqlSave(ctx)
+	var (
+		err  error
+		node *Guild
+	)
+	if len(gc.hooks) == 0 {
+		node, err = gc.sqlSave(ctx)
+	} else {
+		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+			mutation, ok := m.(*GuildMutation)
+			if !ok {
+				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			gc.mutation = mutation
+			node, err = gc.sqlSave(ctx)
+			return node, err
+		})
+		for i := len(gc.hooks) - 1; i >= 0; i-- {
+			mut = gc.hooks[i](mut)
+		}
+		if _, err := mut.Mutate(ctx, gc.mutation); err != nil {
+			return nil, err
+		}
+	}
+	return node, err
 }
 
 // SaveX calls Save and panics if Save returns an error.
@@ -112,54 +132,70 @@ func (gc *GuildCreate) SaveX(ctx context.Context) *Guild {
 
 func (gc *GuildCreate) sqlSave(ctx context.Context) (*Guild, error) {
 	var (
-		builder = sql.Dialect(gc.driver.Dialect())
-		gu      = &Guild{config: gc.config}
+		gu    = &Guild{config: gc.config}
+		_spec = &sqlgraph.CreateSpec{
+			Table: guild.Table,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: guild.FieldID,
+			},
+		}
 	)
-	tx, err := gc.driver.Tx(ctx)
-	if err != nil {
+	if value, ok := gc.mutation.CreatedAt(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: guild.FieldCreatedAt,
+		})
+		gu.CreatedAt = value
+	}
+	if value, ok := gc.mutation.UpdatedAt(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: guild.FieldUpdatedAt,
+		})
+		gu.UpdatedAt = value
+	}
+	if value, ok := gc.mutation.Snowflake(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: guild.FieldSnowflake,
+		})
+		gu.Snowflake = value
+	}
+	if value, ok := gc.mutation.Message(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: guild.FieldMessage,
+		})
+		gu.Message = value
+	}
+	if value, ok := gc.mutation.Categories(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: guild.FieldCategories,
+		})
+		gu.Categories = value
+	}
+	if value, ok := gc.mutation.Entitlements(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: guild.FieldEntitlements,
+		})
+		gu.Entitlements = value
+	}
+	if err := sqlgraph.CreateNode(ctx, gc.driver, _spec); err != nil {
+		if cerr, ok := isSQLConstraintError(err); ok {
+			err = cerr
+		}
 		return nil, err
 	}
-	insert := builder.Insert(guild.Table).Default()
-	if value := gc.created_at; value != nil {
-		insert.Set(guild.FieldCreatedAt, *value)
-		gu.CreatedAt = *value
-	}
-	if value := gc.updated_at; value != nil {
-		insert.Set(guild.FieldUpdatedAt, *value)
-		gu.UpdatedAt = *value
-	}
-	if value := gc.snowflake; value != nil {
-		insert.Set(guild.FieldSnowflake, *value)
-		gu.Snowflake = *value
-	}
-	if value := gc.message; value != nil {
-		insert.Set(guild.FieldMessage, *value)
-		gu.Message = *value
-	}
-	if value := gc.categories; value != nil {
-		buf, err := json.Marshal(*value)
-		if err != nil {
-			return nil, err
-		}
-		insert.Set(guild.FieldCategories, buf)
-		gu.Categories = *value
-	}
-	if value := gc.entitlements; value != nil {
-		buf, err := json.Marshal(*value)
-		if err != nil {
-			return nil, err
-		}
-		insert.Set(guild.FieldEntitlements, buf)
-		gu.Entitlements = *value
-	}
-
-	id, err := insertLastID(ctx, tx, insert.Returning(guild.FieldID))
-	if err != nil {
-		return nil, rollback(tx, err)
-	}
+	id := _spec.ID.Value.(int64)
 	gu.ID = int(id)
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
 	return gu, nil
 }

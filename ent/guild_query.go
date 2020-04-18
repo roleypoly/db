@@ -9,6 +9,8 @@ import (
 	"math"
 
 	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
+	"github.com/facebookincubator/ent/schema/field"
 	"github.com/roleypoly/db/ent/guild"
 	"github.com/roleypoly/db/ent/predicate"
 )
@@ -21,7 +23,7 @@ type GuildQuery struct {
 	order      []Order
 	unique     []string
 	predicates []predicate.Guild
-	// intermediate queries.
+	// intermediate query.
 	sql *sql.Selector
 }
 
@@ -49,14 +51,14 @@ func (gq *GuildQuery) Order(o ...Order) *GuildQuery {
 	return gq
 }
 
-// First returns the first Guild entity in the query. Returns *ErrNotFound when no guild was found.
+// First returns the first Guild entity in the query. Returns *NotFoundError when no guild was found.
 func (gq *GuildQuery) First(ctx context.Context) (*Guild, error) {
 	gus, err := gq.Limit(1).All(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if len(gus) == 0 {
-		return nil, &ErrNotFound{guild.Label}
+		return nil, &NotFoundError{guild.Label}
 	}
 	return gus[0], nil
 }
@@ -70,14 +72,14 @@ func (gq *GuildQuery) FirstX(ctx context.Context) *Guild {
 	return gu
 }
 
-// FirstID returns the first Guild id in the query. Returns *ErrNotFound when no id was found.
+// FirstID returns the first Guild id in the query. Returns *NotFoundError when no id was found.
 func (gq *GuildQuery) FirstID(ctx context.Context) (id int, err error) {
 	var ids []int
 	if ids, err = gq.Limit(1).IDs(ctx); err != nil {
 		return
 	}
 	if len(ids) == 0 {
-		err = &ErrNotFound{guild.Label}
+		err = &NotFoundError{guild.Label}
 		return
 	}
 	return ids[0], nil
@@ -102,9 +104,9 @@ func (gq *GuildQuery) Only(ctx context.Context) (*Guild, error) {
 	case 1:
 		return gus[0], nil
 	case 0:
-		return nil, &ErrNotFound{guild.Label}
+		return nil, &NotFoundError{guild.Label}
 	default:
-		return nil, &ErrNotSingular{guild.Label}
+		return nil, &NotSingularError{guild.Label}
 	}
 }
 
@@ -127,9 +129,9 @@ func (gq *GuildQuery) OnlyID(ctx context.Context) (id int, err error) {
 	case 1:
 		id = ids[0]
 	case 0:
-		err = &ErrNotFound{guild.Label}
+		err = &NotFoundError{guild.Label}
 	default:
-		err = &ErrNotSingular{guild.Label}
+		err = &NotSingularError{guild.Label}
 	}
 	return
 }
@@ -213,7 +215,7 @@ func (gq *GuildQuery) Clone() *GuildQuery {
 		order:      append([]Order{}, gq.order...),
 		unique:     append([]string{}, gq.unique...),
 		predicates: append([]predicate.Guild{}, gq.predicates...),
-		// clone intermediate queries.
+		// clone intermediate query.
 		sql: gq.sql.Clone(),
 	}
 }
@@ -260,45 +262,35 @@ func (gq *GuildQuery) Select(field string, fields ...string) *GuildSelect {
 }
 
 func (gq *GuildQuery) sqlAll(ctx context.Context) ([]*Guild, error) {
-	rows := &sql.Rows{}
-	selector := gq.sqlQuery()
-	if unique := gq.unique; len(unique) == 0 {
-		selector.Distinct()
+	var (
+		nodes = []*Guild{}
+		_spec = gq.querySpec()
+	)
+	_spec.ScanValues = func() []interface{} {
+		node := &Guild{config: gq.config}
+		nodes = append(nodes, node)
+		values := node.scanValues()
+		return values
 	}
-	query, args := selector.Query()
-	if err := gq.driver.Query(ctx, query, args, rows); err != nil {
+	_spec.Assign = func(values ...interface{}) error {
+		if len(nodes) == 0 {
+			return fmt.Errorf("ent: Assign called without calling ScanValues")
+		}
+		node := nodes[len(nodes)-1]
+		return node.assignValues(values...)
+	}
+	if err := sqlgraph.QueryNodes(ctx, gq.driver, _spec); err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var gus Guilds
-	if err := gus.FromRows(rows); err != nil {
-		return nil, err
+	if len(nodes) == 0 {
+		return nodes, nil
 	}
-	gus.config(gq.config)
-	return gus, nil
+	return nodes, nil
 }
 
 func (gq *GuildQuery) sqlCount(ctx context.Context) (int, error) {
-	rows := &sql.Rows{}
-	selector := gq.sqlQuery()
-	unique := []string{guild.FieldID}
-	if len(gq.unique) > 0 {
-		unique = gq.unique
-	}
-	selector.Count(sql.Distinct(selector.Columns(unique...)...))
-	query, args := selector.Query()
-	if err := gq.driver.Query(ctx, query, args, rows); err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-	if !rows.Next() {
-		return 0, errors.New("ent: no rows found")
-	}
-	var n int
-	if err := rows.Scan(&n); err != nil {
-		return 0, fmt.Errorf("ent: failed reading count: %v", err)
-	}
-	return n, nil
+	_spec := gq.querySpec()
+	return sqlgraph.CountNodes(ctx, gq.driver, _spec)
 }
 
 func (gq *GuildQuery) sqlExist(ctx context.Context) (bool, error) {
@@ -307,6 +299,42 @@ func (gq *GuildQuery) sqlExist(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("ent: check existence: %v", err)
 	}
 	return n > 0, nil
+}
+
+func (gq *GuildQuery) querySpec() *sqlgraph.QuerySpec {
+	_spec := &sqlgraph.QuerySpec{
+		Node: &sqlgraph.NodeSpec{
+			Table:   guild.Table,
+			Columns: guild.Columns,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: guild.FieldID,
+			},
+		},
+		From:   gq.sql,
+		Unique: true,
+	}
+	if ps := gq.predicates; len(ps) > 0 {
+		_spec.Predicate = func(selector *sql.Selector) {
+			for i := range ps {
+				ps[i](selector)
+			}
+		}
+	}
+	if limit := gq.limit; limit != nil {
+		_spec.Limit = *limit
+	}
+	if offset := gq.offset; offset != nil {
+		_spec.Offset = *offset
+	}
+	if ps := gq.order; len(ps) > 0 {
+		_spec.Order = func(selector *sql.Selector) {
+			for i := range ps {
+				ps[i](selector)
+			}
+		}
+	}
+	return _spec
 }
 
 func (gq *GuildQuery) sqlQuery() *sql.Selector {
@@ -339,7 +367,7 @@ type GuildGroupBy struct {
 	config
 	fields []string
 	fns    []Aggregate
-	// intermediate queries.
+	// intermediate query.
 	sql *sql.Selector
 }
 
@@ -460,7 +488,7 @@ func (ggb *GuildGroupBy) sqlQuery() *sql.Selector {
 	columns := make([]string, 0, len(ggb.fields)+len(ggb.fns))
 	columns = append(columns, ggb.fields...)
 	for _, fn := range ggb.fns {
-		columns = append(columns, fn.SQL(selector))
+		columns = append(columns, fn(selector))
 	}
 	return selector.Select(columns...).GroupBy(ggb.fields...)
 }
@@ -580,7 +608,7 @@ func (gs *GuildSelect) sqlScan(ctx context.Context, v interface{}) error {
 }
 
 func (gs *GuildSelect) sqlQuery() sql.Querier {
-	view := "guild_view"
-	return sql.Dialect(gs.driver.Dialect()).
-		Select(gs.fields...).From(gs.sql.As(view))
+	selector := gs.sql
+	selector.Select(selector.Columns(gs.fields...)...)
+	return selector
 }

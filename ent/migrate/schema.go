@@ -15,7 +15,8 @@ var (
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "challenge_id", Type: field.TypeString, Unique: true, Size: 2147483647},
 		{Name: "user_id", Type: field.TypeString, Unique: true, Size: 2147483647},
-		{Name: "source", Type: field.TypeEnum, Enums: []string{"oauth", "dm"}},
+		{Name: "human", Type: field.TypeString, Unique: true},
+		{Name: "magic", Type: field.TypeString, Unique: true},
 		{Name: "expires_at", Type: field.TypeTime},
 	}
 	// ChallengesTable holds the schema information for the "challenges" table.

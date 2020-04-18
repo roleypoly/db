@@ -4,11 +4,12 @@ package ent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
+	"github.com/facebookincubator/ent/schema/field"
 	"github.com/roleypoly/db/ent/guild"
 	"github.com/roleypoly/db/ent/predicate"
 	"github.com/roleypoly/db/ent/schema"
@@ -17,13 +18,9 @@ import (
 // GuildUpdate is the builder for updating Guild entities.
 type GuildUpdate struct {
 	config
-
-	updated_at *time.Time
-
-	message      *string
-	categories   *[]schema.Category
-	entitlements *[]string
-	predicates   []predicate.Guild
+	hooks      []Hook
+	mutation   *GuildMutation
+	predicates []predicate.Guild
 }
 
 // Where adds a new predicate for the builder.
@@ -34,35 +31,58 @@ func (gu *GuildUpdate) Where(ps ...predicate.Guild) *GuildUpdate {
 
 // SetUpdatedAt sets the updated_at field.
 func (gu *GuildUpdate) SetUpdatedAt(t time.Time) *GuildUpdate {
-	gu.updated_at = &t
+	gu.mutation.SetUpdatedAt(t)
 	return gu
 }
 
 // SetMessage sets the message field.
 func (gu *GuildUpdate) SetMessage(s string) *GuildUpdate {
-	gu.message = &s
+	gu.mutation.SetMessage(s)
 	return gu
 }
 
 // SetCategories sets the categories field.
 func (gu *GuildUpdate) SetCategories(s []schema.Category) *GuildUpdate {
-	gu.categories = &s
+	gu.mutation.SetCategories(s)
 	return gu
 }
 
 // SetEntitlements sets the entitlements field.
 func (gu *GuildUpdate) SetEntitlements(s []string) *GuildUpdate {
-	gu.entitlements = &s
+	gu.mutation.SetEntitlements(s)
 	return gu
 }
 
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (gu *GuildUpdate) Save(ctx context.Context) (int, error) {
-	if gu.updated_at == nil {
+	if _, ok := gu.mutation.UpdatedAt(); !ok {
 		v := guild.UpdateDefaultUpdatedAt()
-		gu.updated_at = &v
+		gu.mutation.SetUpdatedAt(v)
 	}
-	return gu.sqlSave(ctx)
+	var (
+		err      error
+		affected int
+	)
+	if len(gu.hooks) == 0 {
+		affected, err = gu.sqlSave(ctx)
+	} else {
+		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+			mutation, ok := m.(*GuildMutation)
+			if !ok {
+				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			gu.mutation = mutation
+			affected, err = gu.sqlSave(ctx)
+			return affected, err
+		})
+		for i := len(gu.hooks) - 1; i >= 0; i-- {
+			mut = gu.hooks[i](mut)
+		}
+		if _, err := mut.Mutate(ctx, gu.mutation); err != nil {
+			return 0, err
+		}
+	}
+	return affected, err
 }
 
 // SaveX is like Save, but panics if an error occurs.
@@ -88,116 +108,123 @@ func (gu *GuildUpdate) ExecX(ctx context.Context) {
 }
 
 func (gu *GuildUpdate) sqlSave(ctx context.Context) (n int, err error) {
-	var (
-		builder  = sql.Dialect(gu.driver.Dialect())
-		selector = builder.Select(guild.FieldID).From(builder.Table(guild.Table))
-	)
-	for _, p := range gu.predicates {
-		p(selector)
+	_spec := &sqlgraph.UpdateSpec{
+		Node: &sqlgraph.NodeSpec{
+			Table:   guild.Table,
+			Columns: guild.Columns,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: guild.FieldID,
+			},
+		},
 	}
-	rows := &sql.Rows{}
-	query, args := selector.Query()
-	if err = gu.driver.Query(ctx, query, args, rows); err != nil {
+	if ps := gu.predicates; len(ps) > 0 {
+		_spec.Predicate = func(selector *sql.Selector) {
+			for i := range ps {
+				ps[i](selector)
+			}
+		}
+	}
+	if value, ok := gu.mutation.UpdatedAt(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: guild.FieldUpdatedAt,
+		})
+	}
+	if value, ok := gu.mutation.Message(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: guild.FieldMessage,
+		})
+	}
+	if value, ok := gu.mutation.Categories(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: guild.FieldCategories,
+		})
+	}
+	if value, ok := gu.mutation.Entitlements(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: guild.FieldEntitlements,
+		})
+	}
+	if n, err = sqlgraph.UpdateNodes(ctx, gu.driver, _spec); err != nil {
+		if _, ok := err.(*sqlgraph.NotFoundError); ok {
+			err = &NotFoundError{guild.Label}
+		} else if cerr, ok := isSQLConstraintError(err); ok {
+			err = cerr
+		}
 		return 0, err
 	}
-	defer rows.Close()
-
-	var ids []int
-	for rows.Next() {
-		var id int
-		if err := rows.Scan(&id); err != nil {
-			return 0, fmt.Errorf("ent: failed reading id: %v", err)
-		}
-		ids = append(ids, id)
-	}
-	if len(ids) == 0 {
-		return 0, nil
-	}
-
-	tx, err := gu.driver.Tx(ctx)
-	if err != nil {
-		return 0, err
-	}
-	var (
-		res     sql.Result
-		updater = builder.Update(guild.Table)
-	)
-	updater = updater.Where(sql.InInts(guild.FieldID, ids...))
-	if value := gu.updated_at; value != nil {
-		updater.Set(guild.FieldUpdatedAt, *value)
-	}
-	if value := gu.message; value != nil {
-		updater.Set(guild.FieldMessage, *value)
-	}
-	if value := gu.categories; value != nil {
-		buf, err := json.Marshal(*value)
-		if err != nil {
-			return 0, err
-		}
-		updater.Set(guild.FieldCategories, buf)
-	}
-	if value := gu.entitlements; value != nil {
-		buf, err := json.Marshal(*value)
-		if err != nil {
-			return 0, err
-		}
-		updater.Set(guild.FieldEntitlements, buf)
-	}
-	if !updater.Empty() {
-		query, args := updater.Query()
-		if err := tx.Exec(ctx, query, args, &res); err != nil {
-			return 0, rollback(tx, err)
-		}
-	}
-	if err = tx.Commit(); err != nil {
-		return 0, err
-	}
-	return len(ids), nil
+	return n, nil
 }
 
 // GuildUpdateOne is the builder for updating a single Guild entity.
 type GuildUpdateOne struct {
 	config
-	id int
-
-	updated_at *time.Time
-
-	message      *string
-	categories   *[]schema.Category
-	entitlements *[]string
+	hooks    []Hook
+	mutation *GuildMutation
 }
 
 // SetUpdatedAt sets the updated_at field.
 func (guo *GuildUpdateOne) SetUpdatedAt(t time.Time) *GuildUpdateOne {
-	guo.updated_at = &t
+	guo.mutation.SetUpdatedAt(t)
 	return guo
 }
 
 // SetMessage sets the message field.
 func (guo *GuildUpdateOne) SetMessage(s string) *GuildUpdateOne {
-	guo.message = &s
+	guo.mutation.SetMessage(s)
 	return guo
 }
 
 // SetCategories sets the categories field.
 func (guo *GuildUpdateOne) SetCategories(s []schema.Category) *GuildUpdateOne {
-	guo.categories = &s
+	guo.mutation.SetCategories(s)
 	return guo
 }
 
 // SetEntitlements sets the entitlements field.
 func (guo *GuildUpdateOne) SetEntitlements(s []string) *GuildUpdateOne {
-	guo.entitlements = &s
+	guo.mutation.SetEntitlements(s)
 	return guo
 }
 
 // Save executes the query and returns the updated entity.
 func (guo *GuildUpdateOne) Save(ctx context.Context) (*Guild, error) {
-	if guo.updated_at == nil {
+	if _, ok := guo.mutation.UpdatedAt(); !ok {
 		v := guild.UpdateDefaultUpdatedAt()
-		guo.updated_at = &v
+		guo.mutation.SetUpdatedAt(v)
 	}
-	return guo.sqlSave(ctx)
+	var (
+		err  error
+		node *Guild
+	)
+	if len(guo.hooks) == 0 {
+		node, err = guo.sqlSave(ctx)
+	} else {
+		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+			mutation, ok := m.(*GuildMutation)
+			if !ok {
+				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			guo.mutation = mutation
+			node, err = guo.sqlSave(ctx)
+			return node, err
+		})
+		for i := len(guo.hooks) - 1; i >= 0; i-- {
+			mut = guo.hooks[i](mut)
+		}
+		if _, err := mut.Mutate(ctx, guo.mutation); err != nil {
+			return nil, err
+		}
+	}
+	return node, err
 }
 
 // SaveX is like Save, but panics if an error occurs.
@@ -223,75 +250,58 @@ func (guo *GuildUpdateOne) ExecX(ctx context.Context) {
 }
 
 func (guo *GuildUpdateOne) sqlSave(ctx context.Context) (gu *Guild, err error) {
-	var (
-		builder  = sql.Dialect(guo.driver.Dialect())
-		selector = builder.Select(guild.Columns...).From(builder.Table(guild.Table))
-	)
-	guild.ID(guo.id)(selector)
-	rows := &sql.Rows{}
-	query, args := selector.Query()
-	if err = guo.driver.Query(ctx, query, args, rows); err != nil {
-		return nil, err
+	_spec := &sqlgraph.UpdateSpec{
+		Node: &sqlgraph.NodeSpec{
+			Table:   guild.Table,
+			Columns: guild.Columns,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: guild.FieldID,
+			},
+		},
 	}
-	defer rows.Close()
-
-	var ids []int
-	for rows.Next() {
-		var id int
-		gu = &Guild{config: guo.config}
-		if err := gu.FromRows(rows); err != nil {
-			return nil, fmt.Errorf("ent: failed scanning row into Guild: %v", err)
+	id, ok := guo.mutation.ID()
+	if !ok {
+		return nil, fmt.Errorf("missing Guild.ID for update")
+	}
+	_spec.Node.ID.Value = id
+	if value, ok := guo.mutation.UpdatedAt(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: guild.FieldUpdatedAt,
+		})
+	}
+	if value, ok := guo.mutation.Message(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: guild.FieldMessage,
+		})
+	}
+	if value, ok := guo.mutation.Categories(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: guild.FieldCategories,
+		})
+	}
+	if value, ok := guo.mutation.Entitlements(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: guild.FieldEntitlements,
+		})
+	}
+	gu = &Guild{config: guo.config}
+	_spec.Assign = gu.assignValues
+	_spec.ScanValues = gu.scanValues()
+	if err = sqlgraph.UpdateNode(ctx, guo.driver, _spec); err != nil {
+		if _, ok := err.(*sqlgraph.NotFoundError); ok {
+			err = &NotFoundError{guild.Label}
+		} else if cerr, ok := isSQLConstraintError(err); ok {
+			err = cerr
 		}
-		id = gu.ID
-		ids = append(ids, id)
-	}
-	switch n := len(ids); {
-	case n == 0:
-		return nil, &ErrNotFound{fmt.Sprintf("Guild with id: %v", guo.id)}
-	case n > 1:
-		return nil, fmt.Errorf("ent: more than one Guild with the same id: %v", guo.id)
-	}
-
-	tx, err := guo.driver.Tx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var (
-		res     sql.Result
-		updater = builder.Update(guild.Table)
-	)
-	updater = updater.Where(sql.InInts(guild.FieldID, ids...))
-	if value := guo.updated_at; value != nil {
-		updater.Set(guild.FieldUpdatedAt, *value)
-		gu.UpdatedAt = *value
-	}
-	if value := guo.message; value != nil {
-		updater.Set(guild.FieldMessage, *value)
-		gu.Message = *value
-	}
-	if value := guo.categories; value != nil {
-		buf, err := json.Marshal(*value)
-		if err != nil {
-			return nil, err
-		}
-		updater.Set(guild.FieldCategories, buf)
-		gu.Categories = *value
-	}
-	if value := guo.entitlements; value != nil {
-		buf, err := json.Marshal(*value)
-		if err != nil {
-			return nil, err
-		}
-		updater.Set(guild.FieldEntitlements, buf)
-		gu.Entitlements = *value
-	}
-	if !updater.Empty() {
-		query, args := updater.Query()
-		if err := tx.Exec(ctx, query, args, &res); err != nil {
-			return nil, rollback(tx, err)
-		}
-	}
-	if err = tx.Commit(); err != nil {
 		return nil, err
 	}
 	return gu, nil

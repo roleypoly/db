@@ -30,36 +30,61 @@ type Session struct {
 	ExpiresAt time.Time `json:"expires_at,omitempty"`
 }
 
-// FromRows scans the sql response data into Session.
-func (s *Session) FromRows(rows *sql.Rows) error {
-	var scans struct {
-		ID        int
-		CreatedAt sql.NullTime
-		UpdatedAt sql.NullTime
-		SessionID sql.NullString
-		UserID    sql.NullString
-		Source    sql.NullString
-		ExpiresAt sql.NullTime
+// scanValues returns the types for scanning values from sql.Rows.
+func (*Session) scanValues() []interface{} {
+	return []interface{}{
+		&sql.NullInt64{},  // id
+		&sql.NullTime{},   // created_at
+		&sql.NullTime{},   // updated_at
+		&sql.NullString{}, // session_id
+		&sql.NullString{}, // user_id
+		&sql.NullString{}, // source
+		&sql.NullTime{},   // expires_at
 	}
-	// the order here should be the same as in the `session.Columns`.
-	if err := rows.Scan(
-		&scans.ID,
-		&scans.CreatedAt,
-		&scans.UpdatedAt,
-		&scans.SessionID,
-		&scans.UserID,
-		&scans.Source,
-		&scans.ExpiresAt,
-	); err != nil {
-		return err
+}
+
+// assignValues assigns the values that were returned from sql.Rows (after scanning)
+// to the Session fields.
+func (s *Session) assignValues(values ...interface{}) error {
+	if m, n := len(values), len(session.Columns); m < n {
+		return fmt.Errorf("mismatch number of scan values: %d != %d", m, n)
 	}
-	s.ID = scans.ID
-	s.CreatedAt = scans.CreatedAt.Time
-	s.UpdatedAt = scans.UpdatedAt.Time
-	s.SessionID = scans.SessionID.String
-	s.UserID = scans.UserID.String
-	s.Source = session.Source(scans.Source.String)
-	s.ExpiresAt = scans.ExpiresAt.Time
+	value, ok := values[0].(*sql.NullInt64)
+	if !ok {
+		return fmt.Errorf("unexpected type %T for field id", value)
+	}
+	s.ID = int(value.Int64)
+	values = values[1:]
+	if value, ok := values[0].(*sql.NullTime); !ok {
+		return fmt.Errorf("unexpected type %T for field created_at", values[0])
+	} else if value.Valid {
+		s.CreatedAt = value.Time
+	}
+	if value, ok := values[1].(*sql.NullTime); !ok {
+		return fmt.Errorf("unexpected type %T for field updated_at", values[1])
+	} else if value.Valid {
+		s.UpdatedAt = value.Time
+	}
+	if value, ok := values[2].(*sql.NullString); !ok {
+		return fmt.Errorf("unexpected type %T for field session_id", values[2])
+	} else if value.Valid {
+		s.SessionID = value.String
+	}
+	if value, ok := values[3].(*sql.NullString); !ok {
+		return fmt.Errorf("unexpected type %T for field user_id", values[3])
+	} else if value.Valid {
+		s.UserID = value.String
+	}
+	if value, ok := values[4].(*sql.NullString); !ok {
+		return fmt.Errorf("unexpected type %T for field source", values[4])
+	} else if value.Valid {
+		s.Source = session.Source(value.String)
+	}
+	if value, ok := values[5].(*sql.NullTime); !ok {
+		return fmt.Errorf("unexpected type %T for field expires_at", values[5])
+	} else if value.Valid {
+		s.ExpiresAt = value.Time
+	}
 	return nil
 }
 
@@ -67,7 +92,7 @@ func (s *Session) FromRows(rows *sql.Rows) error {
 // Note that, you need to call Session.Unwrap() before calling this method, if this Session
 // was returned from a transaction, and the transaction was committed or rolled back.
 func (s *Session) Update() *SessionUpdateOne {
-	return (&SessionClient{s.config}).UpdateOne(s)
+	return (&SessionClient{config: s.config}).UpdateOne(s)
 }
 
 // Unwrap unwraps the entity that was returned from a transaction after it was closed,
@@ -104,18 +129,6 @@ func (s *Session) String() string {
 
 // Sessions is a parsable slice of Session.
 type Sessions []*Session
-
-// FromRows scans the sql response data into Sessions.
-func (s *Sessions) FromRows(rows *sql.Rows) error {
-	for rows.Next() {
-		scans := &Session{}
-		if err := scans.FromRows(rows); err != nil {
-			return err
-		}
-		*s = append(*s, scans)
-	}
-	return nil
-}
 
 func (s Sessions) config(cfg config) {
 	for _i := range s {

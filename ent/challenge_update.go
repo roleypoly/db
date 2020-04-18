@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
+	"github.com/facebookincubator/ent/schema/field"
 	"github.com/roleypoly/db/ent/challenge"
 	"github.com/roleypoly/db/ent/predicate"
 )
@@ -15,9 +17,8 @@ import (
 // ChallengeUpdate is the builder for updating Challenge entities.
 type ChallengeUpdate struct {
 	config
-
-	updated_at *time.Time
-
+	hooks      []Hook
+	mutation   *ChallengeMutation
 	predicates []predicate.Challenge
 }
 
@@ -29,17 +30,40 @@ func (cu *ChallengeUpdate) Where(ps ...predicate.Challenge) *ChallengeUpdate {
 
 // SetUpdatedAt sets the updated_at field.
 func (cu *ChallengeUpdate) SetUpdatedAt(t time.Time) *ChallengeUpdate {
-	cu.updated_at = &t
+	cu.mutation.SetUpdatedAt(t)
 	return cu
 }
 
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (cu *ChallengeUpdate) Save(ctx context.Context) (int, error) {
-	if cu.updated_at == nil {
+	if _, ok := cu.mutation.UpdatedAt(); !ok {
 		v := challenge.UpdateDefaultUpdatedAt()
-		cu.updated_at = &v
+		cu.mutation.SetUpdatedAt(v)
 	}
-	return cu.sqlSave(ctx)
+	var (
+		err      error
+		affected int
+	)
+	if len(cu.hooks) == 0 {
+		affected, err = cu.sqlSave(ctx)
+	} else {
+		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+			mutation, ok := m.(*ChallengeMutation)
+			if !ok {
+				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			cu.mutation = mutation
+			affected, err = cu.sqlSave(ctx)
+			return affected, err
+		})
+		for i := len(cu.hooks) - 1; i >= 0; i-- {
+			mut = cu.hooks[i](mut)
+		}
+		if _, err := mut.Mutate(ctx, cu.mutation); err != nil {
+			return 0, err
+		}
+	}
+	return affected, err
 }
 
 // SaveX is like Save, but panics if an error occurs.
@@ -65,77 +89,84 @@ func (cu *ChallengeUpdate) ExecX(ctx context.Context) {
 }
 
 func (cu *ChallengeUpdate) sqlSave(ctx context.Context) (n int, err error) {
-	var (
-		builder  = sql.Dialect(cu.driver.Dialect())
-		selector = builder.Select(challenge.FieldID).From(builder.Table(challenge.Table))
-	)
-	for _, p := range cu.predicates {
-		p(selector)
+	_spec := &sqlgraph.UpdateSpec{
+		Node: &sqlgraph.NodeSpec{
+			Table:   challenge.Table,
+			Columns: challenge.Columns,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: challenge.FieldID,
+			},
+		},
 	}
-	rows := &sql.Rows{}
-	query, args := selector.Query()
-	if err = cu.driver.Query(ctx, query, args, rows); err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-
-	var ids []int
-	for rows.Next() {
-		var id int
-		if err := rows.Scan(&id); err != nil {
-			return 0, fmt.Errorf("ent: failed reading id: %v", err)
-		}
-		ids = append(ids, id)
-	}
-	if len(ids) == 0 {
-		return 0, nil
-	}
-
-	tx, err := cu.driver.Tx(ctx)
-	if err != nil {
-		return 0, err
-	}
-	var (
-		res     sql.Result
-		updater = builder.Update(challenge.Table)
-	)
-	updater = updater.Where(sql.InInts(challenge.FieldID, ids...))
-	if value := cu.updated_at; value != nil {
-		updater.Set(challenge.FieldUpdatedAt, *value)
-	}
-	if !updater.Empty() {
-		query, args := updater.Query()
-		if err := tx.Exec(ctx, query, args, &res); err != nil {
-			return 0, rollback(tx, err)
+	if ps := cu.predicates; len(ps) > 0 {
+		_spec.Predicate = func(selector *sql.Selector) {
+			for i := range ps {
+				ps[i](selector)
+			}
 		}
 	}
-	if err = tx.Commit(); err != nil {
+	if value, ok := cu.mutation.UpdatedAt(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: challenge.FieldUpdatedAt,
+		})
+	}
+	if n, err = sqlgraph.UpdateNodes(ctx, cu.driver, _spec); err != nil {
+		if _, ok := err.(*sqlgraph.NotFoundError); ok {
+			err = &NotFoundError{challenge.Label}
+		} else if cerr, ok := isSQLConstraintError(err); ok {
+			err = cerr
+		}
 		return 0, err
 	}
-	return len(ids), nil
+	return n, nil
 }
 
 // ChallengeUpdateOne is the builder for updating a single Challenge entity.
 type ChallengeUpdateOne struct {
 	config
-	id int
-
-	updated_at *time.Time
+	hooks    []Hook
+	mutation *ChallengeMutation
 }
 
 // SetUpdatedAt sets the updated_at field.
 func (cuo *ChallengeUpdateOne) SetUpdatedAt(t time.Time) *ChallengeUpdateOne {
-	cuo.updated_at = &t
+	cuo.mutation.SetUpdatedAt(t)
 	return cuo
 }
 
 // Save executes the query and returns the updated entity.
 func (cuo *ChallengeUpdateOne) Save(ctx context.Context) (*Challenge, error) {
-	if cuo.updated_at == nil {
+	if _, ok := cuo.mutation.UpdatedAt(); !ok {
 		v := challenge.UpdateDefaultUpdatedAt()
-		cuo.updated_at = &v
+		cuo.mutation.SetUpdatedAt(v)
 	}
-	return cuo.sqlSave(ctx)
+	var (
+		err  error
+		node *Challenge
+	)
+	if len(cuo.hooks) == 0 {
+		node, err = cuo.sqlSave(ctx)
+	} else {
+		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+			mutation, ok := m.(*ChallengeMutation)
+			if !ok {
+				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			cuo.mutation = mutation
+			node, err = cuo.sqlSave(ctx)
+			return node, err
+		})
+		for i := len(cuo.hooks) - 1; i >= 0; i-- {
+			mut = cuo.hooks[i](mut)
+		}
+		if _, err := mut.Mutate(ctx, cuo.mutation); err != nil {
+			return nil, err
+		}
+	}
+	return node, err
 }
 
 // SaveX is like Save, but panics if an error occurs.
@@ -161,55 +192,37 @@ func (cuo *ChallengeUpdateOne) ExecX(ctx context.Context) {
 }
 
 func (cuo *ChallengeUpdateOne) sqlSave(ctx context.Context) (c *Challenge, err error) {
-	var (
-		builder  = sql.Dialect(cuo.driver.Dialect())
-		selector = builder.Select(challenge.Columns...).From(builder.Table(challenge.Table))
-	)
-	challenge.ID(cuo.id)(selector)
-	rows := &sql.Rows{}
-	query, args := selector.Query()
-	if err = cuo.driver.Query(ctx, query, args, rows); err != nil {
-		return nil, err
+	_spec := &sqlgraph.UpdateSpec{
+		Node: &sqlgraph.NodeSpec{
+			Table:   challenge.Table,
+			Columns: challenge.Columns,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: challenge.FieldID,
+			},
+		},
 	}
-	defer rows.Close()
-
-	var ids []int
-	for rows.Next() {
-		var id int
-		c = &Challenge{config: cuo.config}
-		if err := c.FromRows(rows); err != nil {
-			return nil, fmt.Errorf("ent: failed scanning row into Challenge: %v", err)
+	id, ok := cuo.mutation.ID()
+	if !ok {
+		return nil, fmt.Errorf("missing Challenge.ID for update")
+	}
+	_spec.Node.ID.Value = id
+	if value, ok := cuo.mutation.UpdatedAt(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: challenge.FieldUpdatedAt,
+		})
+	}
+	c = &Challenge{config: cuo.config}
+	_spec.Assign = c.assignValues
+	_spec.ScanValues = c.scanValues()
+	if err = sqlgraph.UpdateNode(ctx, cuo.driver, _spec); err != nil {
+		if _, ok := err.(*sqlgraph.NotFoundError); ok {
+			err = &NotFoundError{challenge.Label}
+		} else if cerr, ok := isSQLConstraintError(err); ok {
+			err = cerr
 		}
-		id = c.ID
-		ids = append(ids, id)
-	}
-	switch n := len(ids); {
-	case n == 0:
-		return nil, &ErrNotFound{fmt.Sprintf("Challenge with id: %v", cuo.id)}
-	case n > 1:
-		return nil, fmt.Errorf("ent: more than one Challenge with the same id: %v", cuo.id)
-	}
-
-	tx, err := cuo.driver.Tx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var (
-		res     sql.Result
-		updater = builder.Update(challenge.Table)
-	)
-	updater = updater.Where(sql.InInts(challenge.FieldID, ids...))
-	if value := cuo.updated_at; value != nil {
-		updater.Set(challenge.FieldUpdatedAt, *value)
-		c.UpdatedAt = *value
-	}
-	if !updater.Empty() {
-		query, args := updater.Query()
-		if err := tx.Exec(ctx, query, args, &res); err != nil {
-			return nil, rollback(tx, err)
-		}
-	}
-	if err = tx.Commit(); err != nil {
 		return nil, err
 	}
 	return c, nil

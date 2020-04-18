@@ -9,6 +9,8 @@ import (
 	"math"
 
 	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
+	"github.com/facebookincubator/ent/schema/field"
 	"github.com/roleypoly/db/ent/challenge"
 	"github.com/roleypoly/db/ent/predicate"
 )
@@ -21,7 +23,7 @@ type ChallengeQuery struct {
 	order      []Order
 	unique     []string
 	predicates []predicate.Challenge
-	// intermediate queries.
+	// intermediate query.
 	sql *sql.Selector
 }
 
@@ -49,14 +51,14 @@ func (cq *ChallengeQuery) Order(o ...Order) *ChallengeQuery {
 	return cq
 }
 
-// First returns the first Challenge entity in the query. Returns *ErrNotFound when no challenge was found.
+// First returns the first Challenge entity in the query. Returns *NotFoundError when no challenge was found.
 func (cq *ChallengeQuery) First(ctx context.Context) (*Challenge, error) {
 	cs, err := cq.Limit(1).All(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if len(cs) == 0 {
-		return nil, &ErrNotFound{challenge.Label}
+		return nil, &NotFoundError{challenge.Label}
 	}
 	return cs[0], nil
 }
@@ -70,14 +72,14 @@ func (cq *ChallengeQuery) FirstX(ctx context.Context) *Challenge {
 	return c
 }
 
-// FirstID returns the first Challenge id in the query. Returns *ErrNotFound when no id was found.
+// FirstID returns the first Challenge id in the query. Returns *NotFoundError when no id was found.
 func (cq *ChallengeQuery) FirstID(ctx context.Context) (id int, err error) {
 	var ids []int
 	if ids, err = cq.Limit(1).IDs(ctx); err != nil {
 		return
 	}
 	if len(ids) == 0 {
-		err = &ErrNotFound{challenge.Label}
+		err = &NotFoundError{challenge.Label}
 		return
 	}
 	return ids[0], nil
@@ -102,9 +104,9 @@ func (cq *ChallengeQuery) Only(ctx context.Context) (*Challenge, error) {
 	case 1:
 		return cs[0], nil
 	case 0:
-		return nil, &ErrNotFound{challenge.Label}
+		return nil, &NotFoundError{challenge.Label}
 	default:
-		return nil, &ErrNotSingular{challenge.Label}
+		return nil, &NotSingularError{challenge.Label}
 	}
 }
 
@@ -127,9 +129,9 @@ func (cq *ChallengeQuery) OnlyID(ctx context.Context) (id int, err error) {
 	case 1:
 		id = ids[0]
 	case 0:
-		err = &ErrNotFound{challenge.Label}
+		err = &NotFoundError{challenge.Label}
 	default:
-		err = &ErrNotSingular{challenge.Label}
+		err = &NotSingularError{challenge.Label}
 	}
 	return
 }
@@ -213,7 +215,7 @@ func (cq *ChallengeQuery) Clone() *ChallengeQuery {
 		order:      append([]Order{}, cq.order...),
 		unique:     append([]string{}, cq.unique...),
 		predicates: append([]predicate.Challenge{}, cq.predicates...),
-		// clone intermediate queries.
+		// clone intermediate query.
 		sql: cq.sql.Clone(),
 	}
 }
@@ -260,45 +262,35 @@ func (cq *ChallengeQuery) Select(field string, fields ...string) *ChallengeSelec
 }
 
 func (cq *ChallengeQuery) sqlAll(ctx context.Context) ([]*Challenge, error) {
-	rows := &sql.Rows{}
-	selector := cq.sqlQuery()
-	if unique := cq.unique; len(unique) == 0 {
-		selector.Distinct()
+	var (
+		nodes = []*Challenge{}
+		_spec = cq.querySpec()
+	)
+	_spec.ScanValues = func() []interface{} {
+		node := &Challenge{config: cq.config}
+		nodes = append(nodes, node)
+		values := node.scanValues()
+		return values
 	}
-	query, args := selector.Query()
-	if err := cq.driver.Query(ctx, query, args, rows); err != nil {
+	_spec.Assign = func(values ...interface{}) error {
+		if len(nodes) == 0 {
+			return fmt.Errorf("ent: Assign called without calling ScanValues")
+		}
+		node := nodes[len(nodes)-1]
+		return node.assignValues(values...)
+	}
+	if err := sqlgraph.QueryNodes(ctx, cq.driver, _spec); err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var cs Challenges
-	if err := cs.FromRows(rows); err != nil {
-		return nil, err
+	if len(nodes) == 0 {
+		return nodes, nil
 	}
-	cs.config(cq.config)
-	return cs, nil
+	return nodes, nil
 }
 
 func (cq *ChallengeQuery) sqlCount(ctx context.Context) (int, error) {
-	rows := &sql.Rows{}
-	selector := cq.sqlQuery()
-	unique := []string{challenge.FieldID}
-	if len(cq.unique) > 0 {
-		unique = cq.unique
-	}
-	selector.Count(sql.Distinct(selector.Columns(unique...)...))
-	query, args := selector.Query()
-	if err := cq.driver.Query(ctx, query, args, rows); err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-	if !rows.Next() {
-		return 0, errors.New("ent: no rows found")
-	}
-	var n int
-	if err := rows.Scan(&n); err != nil {
-		return 0, fmt.Errorf("ent: failed reading count: %v", err)
-	}
-	return n, nil
+	_spec := cq.querySpec()
+	return sqlgraph.CountNodes(ctx, cq.driver, _spec)
 }
 
 func (cq *ChallengeQuery) sqlExist(ctx context.Context) (bool, error) {
@@ -307,6 +299,42 @@ func (cq *ChallengeQuery) sqlExist(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("ent: check existence: %v", err)
 	}
 	return n > 0, nil
+}
+
+func (cq *ChallengeQuery) querySpec() *sqlgraph.QuerySpec {
+	_spec := &sqlgraph.QuerySpec{
+		Node: &sqlgraph.NodeSpec{
+			Table:   challenge.Table,
+			Columns: challenge.Columns,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: challenge.FieldID,
+			},
+		},
+		From:   cq.sql,
+		Unique: true,
+	}
+	if ps := cq.predicates; len(ps) > 0 {
+		_spec.Predicate = func(selector *sql.Selector) {
+			for i := range ps {
+				ps[i](selector)
+			}
+		}
+	}
+	if limit := cq.limit; limit != nil {
+		_spec.Limit = *limit
+	}
+	if offset := cq.offset; offset != nil {
+		_spec.Offset = *offset
+	}
+	if ps := cq.order; len(ps) > 0 {
+		_spec.Order = func(selector *sql.Selector) {
+			for i := range ps {
+				ps[i](selector)
+			}
+		}
+	}
+	return _spec
 }
 
 func (cq *ChallengeQuery) sqlQuery() *sql.Selector {
@@ -339,7 +367,7 @@ type ChallengeGroupBy struct {
 	config
 	fields []string
 	fns    []Aggregate
-	// intermediate queries.
+	// intermediate query.
 	sql *sql.Selector
 }
 
@@ -460,7 +488,7 @@ func (cgb *ChallengeGroupBy) sqlQuery() *sql.Selector {
 	columns := make([]string, 0, len(cgb.fields)+len(cgb.fns))
 	columns = append(columns, cgb.fields...)
 	for _, fn := range cgb.fns {
-		columns = append(columns, fn.SQL(selector))
+		columns = append(columns, fn(selector))
 	}
 	return selector.Select(columns...).GroupBy(cgb.fields...)
 }
@@ -580,7 +608,7 @@ func (cs *ChallengeSelect) sqlScan(ctx context.Context, v interface{}) error {
 }
 
 func (cs *ChallengeSelect) sqlQuery() sql.Querier {
-	view := "challenge_view"
-	return sql.Dialect(cs.driver.Dialect()).
-		Select(cs.fields...).From(cs.sql.As(view))
+	selector := cs.sql
+	selector.Select(selector.Columns(cs.fields...)...)
+	return selector
 }

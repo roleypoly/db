@@ -8,24 +8,21 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
+	"github.com/facebookincubator/ent/schema/field"
 	"github.com/roleypoly/db/ent/challenge"
 )
 
 // ChallengeCreate is the builder for creating a Challenge entity.
 type ChallengeCreate struct {
 	config
-	created_at   *time.Time
-	updated_at   *time.Time
-	Challenge_id *string
-	user_id      *string
-	source       *challenge.Source
-	expires_at   *time.Time
+	mutation *ChallengeMutation
+	hooks    []Hook
 }
 
 // SetCreatedAt sets the created_at field.
 func (cc *ChallengeCreate) SetCreatedAt(t time.Time) *ChallengeCreate {
-	cc.created_at = &t
+	cc.mutation.SetCreatedAt(t)
 	return cc
 }
 
@@ -39,7 +36,7 @@ func (cc *ChallengeCreate) SetNillableCreatedAt(t *time.Time) *ChallengeCreate {
 
 // SetUpdatedAt sets the updated_at field.
 func (cc *ChallengeCreate) SetUpdatedAt(t time.Time) *ChallengeCreate {
-	cc.updated_at = &t
+	cc.mutation.SetUpdatedAt(t)
 	return cc
 }
 
@@ -51,27 +48,33 @@ func (cc *ChallengeCreate) SetNillableUpdatedAt(t *time.Time) *ChallengeCreate {
 	return cc
 }
 
-// SetChallengeID sets the Challenge_id field.
+// SetChallengeID sets the challenge_id field.
 func (cc *ChallengeCreate) SetChallengeID(s string) *ChallengeCreate {
-	cc.Challenge_id = &s
+	cc.mutation.SetChallengeID(s)
 	return cc
 }
 
 // SetUserID sets the user_id field.
 func (cc *ChallengeCreate) SetUserID(s string) *ChallengeCreate {
-	cc.user_id = &s
+	cc.mutation.SetUserID(s)
 	return cc
 }
 
-// SetSource sets the source field.
-func (cc *ChallengeCreate) SetSource(c challenge.Source) *ChallengeCreate {
-	cc.source = &c
+// SetHuman sets the human field.
+func (cc *ChallengeCreate) SetHuman(s string) *ChallengeCreate {
+	cc.mutation.SetHuman(s)
+	return cc
+}
+
+// SetMagic sets the magic field.
+func (cc *ChallengeCreate) SetMagic(s string) *ChallengeCreate {
+	cc.mutation.SetMagic(s)
 	return cc
 }
 
 // SetExpiresAt sets the expires_at field.
 func (cc *ChallengeCreate) SetExpiresAt(t time.Time) *ChallengeCreate {
-	cc.expires_at = &t
+	cc.mutation.SetExpiresAt(t)
 	return cc
 }
 
@@ -85,31 +88,54 @@ func (cc *ChallengeCreate) SetNillableExpiresAt(t *time.Time) *ChallengeCreate {
 
 // Save creates the Challenge in the database.
 func (cc *ChallengeCreate) Save(ctx context.Context) (*Challenge, error) {
-	if cc.created_at == nil {
+	if _, ok := cc.mutation.CreatedAt(); !ok {
 		v := challenge.DefaultCreatedAt()
-		cc.created_at = &v
+		cc.mutation.SetCreatedAt(v)
 	}
-	if cc.updated_at == nil {
+	if _, ok := cc.mutation.UpdatedAt(); !ok {
 		v := challenge.DefaultUpdatedAt()
-		cc.updated_at = &v
+		cc.mutation.SetUpdatedAt(v)
 	}
-	if cc.Challenge_id == nil {
-		return nil, errors.New("ent: missing required field \"Challenge_id\"")
+	if _, ok := cc.mutation.ChallengeID(); !ok {
+		return nil, errors.New("ent: missing required field \"challenge_id\"")
 	}
-	if cc.user_id == nil {
+	if _, ok := cc.mutation.UserID(); !ok {
 		return nil, errors.New("ent: missing required field \"user_id\"")
 	}
-	if cc.source == nil {
-		return nil, errors.New("ent: missing required field \"source\"")
+	if _, ok := cc.mutation.Human(); !ok {
+		return nil, errors.New("ent: missing required field \"human\"")
 	}
-	if err := challenge.SourceValidator(*cc.source); err != nil {
-		return nil, fmt.Errorf("ent: validator failed for field \"source\": %v", err)
+	if _, ok := cc.mutation.Magic(); !ok {
+		return nil, errors.New("ent: missing required field \"magic\"")
 	}
-	if cc.expires_at == nil {
+	if _, ok := cc.mutation.ExpiresAt(); !ok {
 		v := challenge.DefaultExpiresAt()
-		cc.expires_at = &v
+		cc.mutation.SetExpiresAt(v)
 	}
-	return cc.sqlSave(ctx)
+	var (
+		err  error
+		node *Challenge
+	)
+	if len(cc.hooks) == 0 {
+		node, err = cc.sqlSave(ctx)
+	} else {
+		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+			mutation, ok := m.(*ChallengeMutation)
+			if !ok {
+				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			cc.mutation = mutation
+			node, err = cc.sqlSave(ctx)
+			return node, err
+		})
+		for i := len(cc.hooks) - 1; i >= 0; i-- {
+			mut = cc.hooks[i](mut)
+		}
+		if _, err := mut.Mutate(ctx, cc.mutation); err != nil {
+			return nil, err
+		}
+	}
+	return node, err
 }
 
 // SaveX calls Save and panics if Save returns an error.
@@ -123,46 +149,78 @@ func (cc *ChallengeCreate) SaveX(ctx context.Context) *Challenge {
 
 func (cc *ChallengeCreate) sqlSave(ctx context.Context) (*Challenge, error) {
 	var (
-		builder = sql.Dialect(cc.driver.Dialect())
-		c       = &Challenge{config: cc.config}
+		c     = &Challenge{config: cc.config}
+		_spec = &sqlgraph.CreateSpec{
+			Table: challenge.Table,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: challenge.FieldID,
+			},
+		}
 	)
-	tx, err := cc.driver.Tx(ctx)
-	if err != nil {
+	if value, ok := cc.mutation.CreatedAt(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: challenge.FieldCreatedAt,
+		})
+		c.CreatedAt = value
+	}
+	if value, ok := cc.mutation.UpdatedAt(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: challenge.FieldUpdatedAt,
+		})
+		c.UpdatedAt = value
+	}
+	if value, ok := cc.mutation.ChallengeID(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: challenge.FieldChallengeID,
+		})
+		c.ChallengeID = value
+	}
+	if value, ok := cc.mutation.UserID(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: challenge.FieldUserID,
+		})
+		c.UserID = value
+	}
+	if value, ok := cc.mutation.Human(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: challenge.FieldHuman,
+		})
+		c.Human = value
+	}
+	if value, ok := cc.mutation.Magic(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: challenge.FieldMagic,
+		})
+		c.Magic = value
+	}
+	if value, ok := cc.mutation.ExpiresAt(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: challenge.FieldExpiresAt,
+		})
+		c.ExpiresAt = value
+	}
+	if err := sqlgraph.CreateNode(ctx, cc.driver, _spec); err != nil {
+		if cerr, ok := isSQLConstraintError(err); ok {
+			err = cerr
+		}
 		return nil, err
 	}
-	insert := builder.Insert(challenge.Table).Default()
-	if value := cc.created_at; value != nil {
-		insert.Set(challenge.FieldCreatedAt, *value)
-		c.CreatedAt = *value
-	}
-	if value := cc.updated_at; value != nil {
-		insert.Set(challenge.FieldUpdatedAt, *value)
-		c.UpdatedAt = *value
-	}
-	if value := cc.Challenge_id; value != nil {
-		insert.Set(challenge.FieldChallengeID, *value)
-		c.ChallengeID = *value
-	}
-	if value := cc.user_id; value != nil {
-		insert.Set(challenge.FieldUserID, *value)
-		c.UserID = *value
-	}
-	if value := cc.source; value != nil {
-		insert.Set(challenge.FieldSource, *value)
-		c.Source = *value
-	}
-	if value := cc.expires_at; value != nil {
-		insert.Set(challenge.FieldExpiresAt, *value)
-		c.ExpiresAt = *value
-	}
-
-	id, err := insertLastID(ctx, tx, insert.Returning(challenge.FieldID))
-	if err != nil {
-		return nil, rollback(tx, err)
-	}
+	id := _spec.ID.Value.(int64)
 	c.ID = int(id)
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
 	return c, nil
 }

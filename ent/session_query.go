@@ -9,6 +9,8 @@ import (
 	"math"
 
 	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
+	"github.com/facebookincubator/ent/schema/field"
 	"github.com/roleypoly/db/ent/predicate"
 	"github.com/roleypoly/db/ent/session"
 )
@@ -21,7 +23,7 @@ type SessionQuery struct {
 	order      []Order
 	unique     []string
 	predicates []predicate.Session
-	// intermediate queries.
+	// intermediate query.
 	sql *sql.Selector
 }
 
@@ -49,14 +51,14 @@ func (sq *SessionQuery) Order(o ...Order) *SessionQuery {
 	return sq
 }
 
-// First returns the first Session entity in the query. Returns *ErrNotFound when no session was found.
+// First returns the first Session entity in the query. Returns *NotFoundError when no session was found.
 func (sq *SessionQuery) First(ctx context.Context) (*Session, error) {
 	sSlice, err := sq.Limit(1).All(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if len(sSlice) == 0 {
-		return nil, &ErrNotFound{session.Label}
+		return nil, &NotFoundError{session.Label}
 	}
 	return sSlice[0], nil
 }
@@ -70,14 +72,14 @@ func (sq *SessionQuery) FirstX(ctx context.Context) *Session {
 	return s
 }
 
-// FirstID returns the first Session id in the query. Returns *ErrNotFound when no id was found.
+// FirstID returns the first Session id in the query. Returns *NotFoundError when no id was found.
 func (sq *SessionQuery) FirstID(ctx context.Context) (id int, err error) {
 	var ids []int
 	if ids, err = sq.Limit(1).IDs(ctx); err != nil {
 		return
 	}
 	if len(ids) == 0 {
-		err = &ErrNotFound{session.Label}
+		err = &NotFoundError{session.Label}
 		return
 	}
 	return ids[0], nil
@@ -102,9 +104,9 @@ func (sq *SessionQuery) Only(ctx context.Context) (*Session, error) {
 	case 1:
 		return sSlice[0], nil
 	case 0:
-		return nil, &ErrNotFound{session.Label}
+		return nil, &NotFoundError{session.Label}
 	default:
-		return nil, &ErrNotSingular{session.Label}
+		return nil, &NotSingularError{session.Label}
 	}
 }
 
@@ -127,9 +129,9 @@ func (sq *SessionQuery) OnlyID(ctx context.Context) (id int, err error) {
 	case 1:
 		id = ids[0]
 	case 0:
-		err = &ErrNotFound{session.Label}
+		err = &NotFoundError{session.Label}
 	default:
-		err = &ErrNotSingular{session.Label}
+		err = &NotSingularError{session.Label}
 	}
 	return
 }
@@ -213,7 +215,7 @@ func (sq *SessionQuery) Clone() *SessionQuery {
 		order:      append([]Order{}, sq.order...),
 		unique:     append([]string{}, sq.unique...),
 		predicates: append([]predicate.Session{}, sq.predicates...),
-		// clone intermediate queries.
+		// clone intermediate query.
 		sql: sq.sql.Clone(),
 	}
 }
@@ -260,45 +262,35 @@ func (sq *SessionQuery) Select(field string, fields ...string) *SessionSelect {
 }
 
 func (sq *SessionQuery) sqlAll(ctx context.Context) ([]*Session, error) {
-	rows := &sql.Rows{}
-	selector := sq.sqlQuery()
-	if unique := sq.unique; len(unique) == 0 {
-		selector.Distinct()
+	var (
+		nodes = []*Session{}
+		_spec = sq.querySpec()
+	)
+	_spec.ScanValues = func() []interface{} {
+		node := &Session{config: sq.config}
+		nodes = append(nodes, node)
+		values := node.scanValues()
+		return values
 	}
-	query, args := selector.Query()
-	if err := sq.driver.Query(ctx, query, args, rows); err != nil {
+	_spec.Assign = func(values ...interface{}) error {
+		if len(nodes) == 0 {
+			return fmt.Errorf("ent: Assign called without calling ScanValues")
+		}
+		node := nodes[len(nodes)-1]
+		return node.assignValues(values...)
+	}
+	if err := sqlgraph.QueryNodes(ctx, sq.driver, _spec); err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var sSlice Sessions
-	if err := sSlice.FromRows(rows); err != nil {
-		return nil, err
+	if len(nodes) == 0 {
+		return nodes, nil
 	}
-	sSlice.config(sq.config)
-	return sSlice, nil
+	return nodes, nil
 }
 
 func (sq *SessionQuery) sqlCount(ctx context.Context) (int, error) {
-	rows := &sql.Rows{}
-	selector := sq.sqlQuery()
-	unique := []string{session.FieldID}
-	if len(sq.unique) > 0 {
-		unique = sq.unique
-	}
-	selector.Count(sql.Distinct(selector.Columns(unique...)...))
-	query, args := selector.Query()
-	if err := sq.driver.Query(ctx, query, args, rows); err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-	if !rows.Next() {
-		return 0, errors.New("ent: no rows found")
-	}
-	var n int
-	if err := rows.Scan(&n); err != nil {
-		return 0, fmt.Errorf("ent: failed reading count: %v", err)
-	}
-	return n, nil
+	_spec := sq.querySpec()
+	return sqlgraph.CountNodes(ctx, sq.driver, _spec)
 }
 
 func (sq *SessionQuery) sqlExist(ctx context.Context) (bool, error) {
@@ -307,6 +299,42 @@ func (sq *SessionQuery) sqlExist(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("ent: check existence: %v", err)
 	}
 	return n > 0, nil
+}
+
+func (sq *SessionQuery) querySpec() *sqlgraph.QuerySpec {
+	_spec := &sqlgraph.QuerySpec{
+		Node: &sqlgraph.NodeSpec{
+			Table:   session.Table,
+			Columns: session.Columns,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: session.FieldID,
+			},
+		},
+		From:   sq.sql,
+		Unique: true,
+	}
+	if ps := sq.predicates; len(ps) > 0 {
+		_spec.Predicate = func(selector *sql.Selector) {
+			for i := range ps {
+				ps[i](selector)
+			}
+		}
+	}
+	if limit := sq.limit; limit != nil {
+		_spec.Limit = *limit
+	}
+	if offset := sq.offset; offset != nil {
+		_spec.Offset = *offset
+	}
+	if ps := sq.order; len(ps) > 0 {
+		_spec.Order = func(selector *sql.Selector) {
+			for i := range ps {
+				ps[i](selector)
+			}
+		}
+	}
+	return _spec
 }
 
 func (sq *SessionQuery) sqlQuery() *sql.Selector {
@@ -339,7 +367,7 @@ type SessionGroupBy struct {
 	config
 	fields []string
 	fns    []Aggregate
-	// intermediate queries.
+	// intermediate query.
 	sql *sql.Selector
 }
 
@@ -460,7 +488,7 @@ func (sgb *SessionGroupBy) sqlQuery() *sql.Selector {
 	columns := make([]string, 0, len(sgb.fields)+len(sgb.fns))
 	columns = append(columns, sgb.fields...)
 	for _, fn := range sgb.fns {
-		columns = append(columns, fn.SQL(selector))
+		columns = append(columns, fn(selector))
 	}
 	return selector.Select(columns...).GroupBy(sgb.fields...)
 }
@@ -580,7 +608,7 @@ func (ss *SessionSelect) sqlScan(ctx context.Context, v interface{}) error {
 }
 
 func (ss *SessionSelect) sqlQuery() sql.Querier {
-	view := "session_view"
-	return sql.Dialect(ss.driver.Dialect()).
-		Select(ss.fields...).From(ss.sql.As(view))
+	selector := ss.sql
+	selector.Select(selector.Columns(ss.fields...)...)
+	return selector
 }

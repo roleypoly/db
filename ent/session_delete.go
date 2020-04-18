@@ -4,8 +4,11 @@ package ent
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
+	"github.com/facebookincubator/ent/schema/field"
 	"github.com/roleypoly/db/ent/predicate"
 	"github.com/roleypoly/db/ent/session"
 )
@@ -13,6 +16,8 @@ import (
 // SessionDelete is the builder for deleting a Session entity.
 type SessionDelete struct {
 	config
+	hooks      []Hook
+	mutation   *SessionMutation
 	predicates []predicate.Session
 }
 
@@ -24,7 +29,30 @@ func (sd *SessionDelete) Where(ps ...predicate.Session) *SessionDelete {
 
 // Exec executes the deletion query and returns how many vertices were deleted.
 func (sd *SessionDelete) Exec(ctx context.Context) (int, error) {
-	return sd.sqlExec(ctx)
+	var (
+		err      error
+		affected int
+	)
+	if len(sd.hooks) == 0 {
+		affected, err = sd.sqlExec(ctx)
+	} else {
+		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+			mutation, ok := m.(*SessionMutation)
+			if !ok {
+				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			sd.mutation = mutation
+			affected, err = sd.sqlExec(ctx)
+			return affected, err
+		})
+		for i := len(sd.hooks) - 1; i >= 0; i-- {
+			mut = sd.hooks[i](mut)
+		}
+		if _, err := mut.Mutate(ctx, sd.mutation); err != nil {
+			return 0, err
+		}
+	}
+	return affected, err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
@@ -37,23 +65,23 @@ func (sd *SessionDelete) ExecX(ctx context.Context) int {
 }
 
 func (sd *SessionDelete) sqlExec(ctx context.Context) (int, error) {
-	var (
-		res     sql.Result
-		builder = sql.Dialect(sd.driver.Dialect())
-	)
-	selector := builder.Select().From(sql.Table(session.Table))
-	for _, p := range sd.predicates {
-		p(selector)
+	_spec := &sqlgraph.DeleteSpec{
+		Node: &sqlgraph.NodeSpec{
+			Table: session.Table,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: session.FieldID,
+			},
+		},
 	}
-	query, args := builder.Delete(session.Table).FromSelect(selector).Query()
-	if err := sd.driver.Exec(ctx, query, args, &res); err != nil {
-		return 0, err
+	if ps := sd.predicates; len(ps) > 0 {
+		_spec.Predicate = func(selector *sql.Selector) {
+			for i := range ps {
+				ps[i](selector)
+			}
+		}
 	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	return int(affected), nil
+	return sqlgraph.DeleteNodes(ctx, sd.driver, _spec)
 }
 
 // SessionDeleteOne is the builder for deleting a single Session entity.
@@ -68,7 +96,7 @@ func (sdo *SessionDeleteOne) Exec(ctx context.Context) error {
 	case err != nil:
 		return err
 	case n == 0:
-		return &ErrNotFound{session.Label}
+		return &NotFoundError{session.Label}
 	default:
 		return nil
 	}

@@ -4,8 +4,11 @@ package ent
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
+	"github.com/facebookincubator/ent/schema/field"
 	"github.com/roleypoly/db/ent/challenge"
 	"github.com/roleypoly/db/ent/predicate"
 )
@@ -13,6 +16,8 @@ import (
 // ChallengeDelete is the builder for deleting a Challenge entity.
 type ChallengeDelete struct {
 	config
+	hooks      []Hook
+	mutation   *ChallengeMutation
 	predicates []predicate.Challenge
 }
 
@@ -24,7 +29,30 @@ func (cd *ChallengeDelete) Where(ps ...predicate.Challenge) *ChallengeDelete {
 
 // Exec executes the deletion query and returns how many vertices were deleted.
 func (cd *ChallengeDelete) Exec(ctx context.Context) (int, error) {
-	return cd.sqlExec(ctx)
+	var (
+		err      error
+		affected int
+	)
+	if len(cd.hooks) == 0 {
+		affected, err = cd.sqlExec(ctx)
+	} else {
+		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+			mutation, ok := m.(*ChallengeMutation)
+			if !ok {
+				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			cd.mutation = mutation
+			affected, err = cd.sqlExec(ctx)
+			return affected, err
+		})
+		for i := len(cd.hooks) - 1; i >= 0; i-- {
+			mut = cd.hooks[i](mut)
+		}
+		if _, err := mut.Mutate(ctx, cd.mutation); err != nil {
+			return 0, err
+		}
+	}
+	return affected, err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
@@ -37,23 +65,23 @@ func (cd *ChallengeDelete) ExecX(ctx context.Context) int {
 }
 
 func (cd *ChallengeDelete) sqlExec(ctx context.Context) (int, error) {
-	var (
-		res     sql.Result
-		builder = sql.Dialect(cd.driver.Dialect())
-	)
-	selector := builder.Select().From(sql.Table(challenge.Table))
-	for _, p := range cd.predicates {
-		p(selector)
+	_spec := &sqlgraph.DeleteSpec{
+		Node: &sqlgraph.NodeSpec{
+			Table: challenge.Table,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: challenge.FieldID,
+			},
+		},
 	}
-	query, args := builder.Delete(challenge.Table).FromSelect(selector).Query()
-	if err := cd.driver.Exec(ctx, query, args, &res); err != nil {
-		return 0, err
+	if ps := cd.predicates; len(ps) > 0 {
+		_spec.Predicate = func(selector *sql.Selector) {
+			for i := range ps {
+				ps[i](selector)
+			}
+		}
 	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	return int(affected), nil
+	return sqlgraph.DeleteNodes(ctx, cd.driver, _spec)
 }
 
 // ChallengeDeleteOne is the builder for deleting a single Challenge entity.
@@ -68,7 +96,7 @@ func (cdo *ChallengeDeleteOne) Exec(ctx context.Context) error {
 	case err != nil:
 		return err
 	case n == 0:
-		return &ErrNotFound{challenge.Label}
+		return &NotFoundError{challenge.Label}
 	default:
 		return nil
 	}

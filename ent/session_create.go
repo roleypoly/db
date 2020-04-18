@@ -8,24 +8,21 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
+	"github.com/facebookincubator/ent/schema/field"
 	"github.com/roleypoly/db/ent/session"
 )
 
 // SessionCreate is the builder for creating a Session entity.
 type SessionCreate struct {
 	config
-	created_at *time.Time
-	updated_at *time.Time
-	session_id *string
-	user_id    *string
-	source     *session.Source
-	expires_at *time.Time
+	mutation *SessionMutation
+	hooks    []Hook
 }
 
 // SetCreatedAt sets the created_at field.
 func (sc *SessionCreate) SetCreatedAt(t time.Time) *SessionCreate {
-	sc.created_at = &t
+	sc.mutation.SetCreatedAt(t)
 	return sc
 }
 
@@ -39,7 +36,7 @@ func (sc *SessionCreate) SetNillableCreatedAt(t *time.Time) *SessionCreate {
 
 // SetUpdatedAt sets the updated_at field.
 func (sc *SessionCreate) SetUpdatedAt(t time.Time) *SessionCreate {
-	sc.updated_at = &t
+	sc.mutation.SetUpdatedAt(t)
 	return sc
 }
 
@@ -53,25 +50,25 @@ func (sc *SessionCreate) SetNillableUpdatedAt(t *time.Time) *SessionCreate {
 
 // SetSessionID sets the session_id field.
 func (sc *SessionCreate) SetSessionID(s string) *SessionCreate {
-	sc.session_id = &s
+	sc.mutation.SetSessionID(s)
 	return sc
 }
 
 // SetUserID sets the user_id field.
 func (sc *SessionCreate) SetUserID(s string) *SessionCreate {
-	sc.user_id = &s
+	sc.mutation.SetUserID(s)
 	return sc
 }
 
 // SetSource sets the source field.
 func (sc *SessionCreate) SetSource(s session.Source) *SessionCreate {
-	sc.source = &s
+	sc.mutation.SetSource(s)
 	return sc
 }
 
 // SetExpiresAt sets the expires_at field.
 func (sc *SessionCreate) SetExpiresAt(t time.Time) *SessionCreate {
-	sc.expires_at = &t
+	sc.mutation.SetExpiresAt(t)
 	return sc
 }
 
@@ -85,31 +82,56 @@ func (sc *SessionCreate) SetNillableExpiresAt(t *time.Time) *SessionCreate {
 
 // Save creates the Session in the database.
 func (sc *SessionCreate) Save(ctx context.Context) (*Session, error) {
-	if sc.created_at == nil {
+	if _, ok := sc.mutation.CreatedAt(); !ok {
 		v := session.DefaultCreatedAt()
-		sc.created_at = &v
+		sc.mutation.SetCreatedAt(v)
 	}
-	if sc.updated_at == nil {
+	if _, ok := sc.mutation.UpdatedAt(); !ok {
 		v := session.DefaultUpdatedAt()
-		sc.updated_at = &v
+		sc.mutation.SetUpdatedAt(v)
 	}
-	if sc.session_id == nil {
+	if _, ok := sc.mutation.SessionID(); !ok {
 		return nil, errors.New("ent: missing required field \"session_id\"")
 	}
-	if sc.user_id == nil {
+	if _, ok := sc.mutation.UserID(); !ok {
 		return nil, errors.New("ent: missing required field \"user_id\"")
 	}
-	if sc.source == nil {
+	if _, ok := sc.mutation.Source(); !ok {
 		return nil, errors.New("ent: missing required field \"source\"")
 	}
-	if err := session.SourceValidator(*sc.source); err != nil {
-		return nil, fmt.Errorf("ent: validator failed for field \"source\": %v", err)
+	if v, ok := sc.mutation.Source(); ok {
+		if err := session.SourceValidator(v); err != nil {
+			return nil, fmt.Errorf("ent: validator failed for field \"source\": %v", err)
+		}
 	}
-	if sc.expires_at == nil {
+	if _, ok := sc.mutation.ExpiresAt(); !ok {
 		v := session.DefaultExpiresAt()
-		sc.expires_at = &v
+		sc.mutation.SetExpiresAt(v)
 	}
-	return sc.sqlSave(ctx)
+	var (
+		err  error
+		node *Session
+	)
+	if len(sc.hooks) == 0 {
+		node, err = sc.sqlSave(ctx)
+	} else {
+		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+			mutation, ok := m.(*SessionMutation)
+			if !ok {
+				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			sc.mutation = mutation
+			node, err = sc.sqlSave(ctx)
+			return node, err
+		})
+		for i := len(sc.hooks) - 1; i >= 0; i-- {
+			mut = sc.hooks[i](mut)
+		}
+		if _, err := mut.Mutate(ctx, sc.mutation); err != nil {
+			return nil, err
+		}
+	}
+	return node, err
 }
 
 // SaveX calls Save and panics if Save returns an error.
@@ -123,46 +145,70 @@ func (sc *SessionCreate) SaveX(ctx context.Context) *Session {
 
 func (sc *SessionCreate) sqlSave(ctx context.Context) (*Session, error) {
 	var (
-		builder = sql.Dialect(sc.driver.Dialect())
-		s       = &Session{config: sc.config}
+		s     = &Session{config: sc.config}
+		_spec = &sqlgraph.CreateSpec{
+			Table: session.Table,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: session.FieldID,
+			},
+		}
 	)
-	tx, err := sc.driver.Tx(ctx)
-	if err != nil {
+	if value, ok := sc.mutation.CreatedAt(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: session.FieldCreatedAt,
+		})
+		s.CreatedAt = value
+	}
+	if value, ok := sc.mutation.UpdatedAt(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: session.FieldUpdatedAt,
+		})
+		s.UpdatedAt = value
+	}
+	if value, ok := sc.mutation.SessionID(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: session.FieldSessionID,
+		})
+		s.SessionID = value
+	}
+	if value, ok := sc.mutation.UserID(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: session.FieldUserID,
+		})
+		s.UserID = value
+	}
+	if value, ok := sc.mutation.Source(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeEnum,
+			Value:  value,
+			Column: session.FieldSource,
+		})
+		s.Source = value
+	}
+	if value, ok := sc.mutation.ExpiresAt(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: session.FieldExpiresAt,
+		})
+		s.ExpiresAt = value
+	}
+	if err := sqlgraph.CreateNode(ctx, sc.driver, _spec); err != nil {
+		if cerr, ok := isSQLConstraintError(err); ok {
+			err = cerr
+		}
 		return nil, err
 	}
-	insert := builder.Insert(session.Table).Default()
-	if value := sc.created_at; value != nil {
-		insert.Set(session.FieldCreatedAt, *value)
-		s.CreatedAt = *value
-	}
-	if value := sc.updated_at; value != nil {
-		insert.Set(session.FieldUpdatedAt, *value)
-		s.UpdatedAt = *value
-	}
-	if value := sc.session_id; value != nil {
-		insert.Set(session.FieldSessionID, *value)
-		s.SessionID = *value
-	}
-	if value := sc.user_id; value != nil {
-		insert.Set(session.FieldUserID, *value)
-		s.UserID = *value
-	}
-	if value := sc.source; value != nil {
-		insert.Set(session.FieldSource, *value)
-		s.Source = *value
-	}
-	if value := sc.expires_at; value != nil {
-		insert.Set(session.FieldExpiresAt, *value)
-		s.ExpiresAt = *value
-	}
-
-	id, err := insertLastID(ctx, tx, insert.Returning(session.FieldID))
-	if err != nil {
-		return nil, rollback(tx, err)
-	}
+	id := _spec.ID.Value.(int64)
 	s.ID = int(id)
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
 	return s, nil
 }

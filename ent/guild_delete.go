@@ -4,8 +4,11 @@ package ent
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
+	"github.com/facebookincubator/ent/schema/field"
 	"github.com/roleypoly/db/ent/guild"
 	"github.com/roleypoly/db/ent/predicate"
 )
@@ -13,6 +16,8 @@ import (
 // GuildDelete is the builder for deleting a Guild entity.
 type GuildDelete struct {
 	config
+	hooks      []Hook
+	mutation   *GuildMutation
 	predicates []predicate.Guild
 }
 
@@ -24,7 +29,30 @@ func (gd *GuildDelete) Where(ps ...predicate.Guild) *GuildDelete {
 
 // Exec executes the deletion query and returns how many vertices were deleted.
 func (gd *GuildDelete) Exec(ctx context.Context) (int, error) {
-	return gd.sqlExec(ctx)
+	var (
+		err      error
+		affected int
+	)
+	if len(gd.hooks) == 0 {
+		affected, err = gd.sqlExec(ctx)
+	} else {
+		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+			mutation, ok := m.(*GuildMutation)
+			if !ok {
+				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			gd.mutation = mutation
+			affected, err = gd.sqlExec(ctx)
+			return affected, err
+		})
+		for i := len(gd.hooks) - 1; i >= 0; i-- {
+			mut = gd.hooks[i](mut)
+		}
+		if _, err := mut.Mutate(ctx, gd.mutation); err != nil {
+			return 0, err
+		}
+	}
+	return affected, err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
@@ -37,23 +65,23 @@ func (gd *GuildDelete) ExecX(ctx context.Context) int {
 }
 
 func (gd *GuildDelete) sqlExec(ctx context.Context) (int, error) {
-	var (
-		res     sql.Result
-		builder = sql.Dialect(gd.driver.Dialect())
-	)
-	selector := builder.Select().From(sql.Table(guild.Table))
-	for _, p := range gd.predicates {
-		p(selector)
+	_spec := &sqlgraph.DeleteSpec{
+		Node: &sqlgraph.NodeSpec{
+			Table: guild.Table,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: guild.FieldID,
+			},
+		},
 	}
-	query, args := builder.Delete(guild.Table).FromSelect(selector).Query()
-	if err := gd.driver.Exec(ctx, query, args, &res); err != nil {
-		return 0, err
+	if ps := gd.predicates; len(ps) > 0 {
+		_spec.Predicate = func(selector *sql.Selector) {
+			for i := range ps {
+				ps[i](selector)
+			}
+		}
 	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	return int(affected), nil
+	return sqlgraph.DeleteNodes(ctx, gd.driver, _spec)
 }
 
 // GuildDeleteOne is the builder for deleting a single Guild entity.
@@ -68,7 +96,7 @@ func (gdo *GuildDeleteOne) Exec(ctx context.Context) error {
 	case err != nil:
 		return err
 	case n == 0:
-		return &ErrNotFound{guild.Label}
+		return &NotFoundError{guild.Label}
 	default:
 		return nil
 	}

@@ -20,46 +20,79 @@ type Challenge struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
-	// ChallengeID holds the value of the "Challenge_id" field.
-	ChallengeID string `json:"Challenge_id,omitempty"`
+	// ChallengeID holds the value of the "challenge_id" field.
+	ChallengeID string `json:"challenge_id,omitempty"`
 	// UserID holds the value of the "user_id" field.
 	UserID string `json:"user_id,omitempty"`
-	// Source holds the value of the "source" field.
-	Source challenge.Source `json:"source,omitempty"`
+	// Human holds the value of the "human" field.
+	Human string `json:"human,omitempty"`
+	// Magic holds the value of the "magic" field.
+	Magic string `json:"magic,omitempty"`
 	// ExpiresAt holds the value of the "expires_at" field.
 	ExpiresAt time.Time `json:"expires_at,omitempty"`
 }
 
-// FromRows scans the sql response data into Challenge.
-func (c *Challenge) FromRows(rows *sql.Rows) error {
-	var scanc struct {
-		ID          int
-		CreatedAt   sql.NullTime
-		UpdatedAt   sql.NullTime
-		ChallengeID sql.NullString
-		UserID      sql.NullString
-		Source      sql.NullString
-		ExpiresAt   sql.NullTime
+// scanValues returns the types for scanning values from sql.Rows.
+func (*Challenge) scanValues() []interface{} {
+	return []interface{}{
+		&sql.NullInt64{},  // id
+		&sql.NullTime{},   // created_at
+		&sql.NullTime{},   // updated_at
+		&sql.NullString{}, // challenge_id
+		&sql.NullString{}, // user_id
+		&sql.NullString{}, // human
+		&sql.NullString{}, // magic
+		&sql.NullTime{},   // expires_at
 	}
-	// the order here should be the same as in the `challenge.Columns`.
-	if err := rows.Scan(
-		&scanc.ID,
-		&scanc.CreatedAt,
-		&scanc.UpdatedAt,
-		&scanc.ChallengeID,
-		&scanc.UserID,
-		&scanc.Source,
-		&scanc.ExpiresAt,
-	); err != nil {
-		return err
+}
+
+// assignValues assigns the values that were returned from sql.Rows (after scanning)
+// to the Challenge fields.
+func (c *Challenge) assignValues(values ...interface{}) error {
+	if m, n := len(values), len(challenge.Columns); m < n {
+		return fmt.Errorf("mismatch number of scan values: %d != %d", m, n)
 	}
-	c.ID = scanc.ID
-	c.CreatedAt = scanc.CreatedAt.Time
-	c.UpdatedAt = scanc.UpdatedAt.Time
-	c.ChallengeID = scanc.ChallengeID.String
-	c.UserID = scanc.UserID.String
-	c.Source = challenge.Source(scanc.Source.String)
-	c.ExpiresAt = scanc.ExpiresAt.Time
+	value, ok := values[0].(*sql.NullInt64)
+	if !ok {
+		return fmt.Errorf("unexpected type %T for field id", value)
+	}
+	c.ID = int(value.Int64)
+	values = values[1:]
+	if value, ok := values[0].(*sql.NullTime); !ok {
+		return fmt.Errorf("unexpected type %T for field created_at", values[0])
+	} else if value.Valid {
+		c.CreatedAt = value.Time
+	}
+	if value, ok := values[1].(*sql.NullTime); !ok {
+		return fmt.Errorf("unexpected type %T for field updated_at", values[1])
+	} else if value.Valid {
+		c.UpdatedAt = value.Time
+	}
+	if value, ok := values[2].(*sql.NullString); !ok {
+		return fmt.Errorf("unexpected type %T for field challenge_id", values[2])
+	} else if value.Valid {
+		c.ChallengeID = value.String
+	}
+	if value, ok := values[3].(*sql.NullString); !ok {
+		return fmt.Errorf("unexpected type %T for field user_id", values[3])
+	} else if value.Valid {
+		c.UserID = value.String
+	}
+	if value, ok := values[4].(*sql.NullString); !ok {
+		return fmt.Errorf("unexpected type %T for field human", values[4])
+	} else if value.Valid {
+		c.Human = value.String
+	}
+	if value, ok := values[5].(*sql.NullString); !ok {
+		return fmt.Errorf("unexpected type %T for field magic", values[5])
+	} else if value.Valid {
+		c.Magic = value.String
+	}
+	if value, ok := values[6].(*sql.NullTime); !ok {
+		return fmt.Errorf("unexpected type %T for field expires_at", values[6])
+	} else if value.Valid {
+		c.ExpiresAt = value.Time
+	}
 	return nil
 }
 
@@ -67,7 +100,7 @@ func (c *Challenge) FromRows(rows *sql.Rows) error {
 // Note that, you need to call Challenge.Unwrap() before calling this method, if this Challenge
 // was returned from a transaction, and the transaction was committed or rolled back.
 func (c *Challenge) Update() *ChallengeUpdateOne {
-	return (&ChallengeClient{c.config}).UpdateOne(c)
+	return (&ChallengeClient{config: c.config}).UpdateOne(c)
 }
 
 // Unwrap unwraps the entity that was returned from a transaction after it was closed,
@@ -90,12 +123,14 @@ func (c *Challenge) String() string {
 	builder.WriteString(c.CreatedAt.Format(time.ANSIC))
 	builder.WriteString(", updated_at=")
 	builder.WriteString(c.UpdatedAt.Format(time.ANSIC))
-	builder.WriteString(", Challenge_id=")
+	builder.WriteString(", challenge_id=")
 	builder.WriteString(c.ChallengeID)
 	builder.WriteString(", user_id=")
 	builder.WriteString(c.UserID)
-	builder.WriteString(", source=")
-	builder.WriteString(fmt.Sprintf("%v", c.Source))
+	builder.WriteString(", human=")
+	builder.WriteString(c.Human)
+	builder.WriteString(", magic=")
+	builder.WriteString(c.Magic)
 	builder.WriteString(", expires_at=")
 	builder.WriteString(c.ExpiresAt.Format(time.ANSIC))
 	builder.WriteByte(')')
@@ -104,18 +139,6 @@ func (c *Challenge) String() string {
 
 // Challenges is a parsable slice of Challenge.
 type Challenges []*Challenge
-
-// FromRows scans the sql response data into Challenges.
-func (c *Challenges) FromRows(rows *sql.Rows) error {
-	for rows.Next() {
-		scanc := &Challenge{}
-		if err := scanc.FromRows(rows); err != nil {
-			return err
-		}
-		*c = append(*c, scanc)
-	}
-	return nil
-}
 
 func (c Challenges) config(cfg config) {
 	for _i := range c {

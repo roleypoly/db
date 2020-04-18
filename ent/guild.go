@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/roleypoly/db/ent/guild"
 	"github.com/roleypoly/db/ent/schema"
 )
 
@@ -31,41 +32,64 @@ type Guild struct {
 	Entitlements []string `json:"entitlements,omitempty"`
 }
 
-// FromRows scans the sql response data into Guild.
-func (gu *Guild) FromRows(rows *sql.Rows) error {
-	var scangu struct {
-		ID           int
-		CreatedAt    sql.NullTime
-		UpdatedAt    sql.NullTime
-		Snowflake    sql.NullString
-		Message      sql.NullString
-		Categories   []byte
-		Entitlements []byte
+// scanValues returns the types for scanning values from sql.Rows.
+func (*Guild) scanValues() []interface{} {
+	return []interface{}{
+		&sql.NullInt64{},  // id
+		&sql.NullTime{},   // created_at
+		&sql.NullTime{},   // updated_at
+		&sql.NullString{}, // snowflake
+		&sql.NullString{}, // message
+		&[]byte{},         // categories
+		&[]byte{},         // entitlements
 	}
-	// the order here should be the same as in the `guild.Columns`.
-	if err := rows.Scan(
-		&scangu.ID,
-		&scangu.CreatedAt,
-		&scangu.UpdatedAt,
-		&scangu.Snowflake,
-		&scangu.Message,
-		&scangu.Categories,
-		&scangu.Entitlements,
-	); err != nil {
-		return err
+}
+
+// assignValues assigns the values that were returned from sql.Rows (after scanning)
+// to the Guild fields.
+func (gu *Guild) assignValues(values ...interface{}) error {
+	if m, n := len(values), len(guild.Columns); m < n {
+		return fmt.Errorf("mismatch number of scan values: %d != %d", m, n)
 	}
-	gu.ID = scangu.ID
-	gu.CreatedAt = scangu.CreatedAt.Time
-	gu.UpdatedAt = scangu.UpdatedAt.Time
-	gu.Snowflake = scangu.Snowflake.String
-	gu.Message = scangu.Message.String
-	if value := scangu.Categories; len(value) > 0 {
-		if err := json.Unmarshal(value, &gu.Categories); err != nil {
+	value, ok := values[0].(*sql.NullInt64)
+	if !ok {
+		return fmt.Errorf("unexpected type %T for field id", value)
+	}
+	gu.ID = int(value.Int64)
+	values = values[1:]
+	if value, ok := values[0].(*sql.NullTime); !ok {
+		return fmt.Errorf("unexpected type %T for field created_at", values[0])
+	} else if value.Valid {
+		gu.CreatedAt = value.Time
+	}
+	if value, ok := values[1].(*sql.NullTime); !ok {
+		return fmt.Errorf("unexpected type %T for field updated_at", values[1])
+	} else if value.Valid {
+		gu.UpdatedAt = value.Time
+	}
+	if value, ok := values[2].(*sql.NullString); !ok {
+		return fmt.Errorf("unexpected type %T for field snowflake", values[2])
+	} else if value.Valid {
+		gu.Snowflake = value.String
+	}
+	if value, ok := values[3].(*sql.NullString); !ok {
+		return fmt.Errorf("unexpected type %T for field message", values[3])
+	} else if value.Valid {
+		gu.Message = value.String
+	}
+
+	if value, ok := values[4].(*[]byte); !ok {
+		return fmt.Errorf("unexpected type %T for field categories", values[4])
+	} else if value != nil && len(*value) > 0 {
+		if err := json.Unmarshal(*value, &gu.Categories); err != nil {
 			return fmt.Errorf("unmarshal field categories: %v", err)
 		}
 	}
-	if value := scangu.Entitlements; len(value) > 0 {
-		if err := json.Unmarshal(value, &gu.Entitlements); err != nil {
+
+	if value, ok := values[5].(*[]byte); !ok {
+		return fmt.Errorf("unexpected type %T for field entitlements", values[5])
+	} else if value != nil && len(*value) > 0 {
+		if err := json.Unmarshal(*value, &gu.Entitlements); err != nil {
 			return fmt.Errorf("unmarshal field entitlements: %v", err)
 		}
 	}
@@ -76,7 +100,7 @@ func (gu *Guild) FromRows(rows *sql.Rows) error {
 // Note that, you need to call Guild.Unwrap() before calling this method, if this Guild
 // was returned from a transaction, and the transaction was committed or rolled back.
 func (gu *Guild) Update() *GuildUpdateOne {
-	return (&GuildClient{gu.config}).UpdateOne(gu)
+	return (&GuildClient{config: gu.config}).UpdateOne(gu)
 }
 
 // Unwrap unwraps the entity that was returned from a transaction after it was closed,
@@ -113,18 +137,6 @@ func (gu *Guild) String() string {
 
 // Guilds is a parsable slice of Guild.
 type Guilds []*Guild
-
-// FromRows scans the sql response data into Guilds.
-func (gu *Guilds) FromRows(rows *sql.Rows) error {
-	for rows.Next() {
-		scangu := &Guild{}
-		if err := scangu.FromRows(rows); err != nil {
-			return err
-		}
-		*gu = append(*gu, scangu)
-	}
-	return nil
-}
 
 func (gu Guilds) config(cfg config) {
 	for _i := range gu {

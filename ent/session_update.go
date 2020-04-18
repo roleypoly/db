@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/facebookincubator/ent/dialect/sql"
+	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
+	"github.com/facebookincubator/ent/schema/field"
 	"github.com/roleypoly/db/ent/predicate"
 	"github.com/roleypoly/db/ent/session"
 )
@@ -15,11 +17,8 @@ import (
 // SessionUpdate is the builder for updating Session entities.
 type SessionUpdate struct {
 	config
-
-	updated_at *time.Time
-
-	source     *session.Source
-	expires_at *time.Time
+	hooks      []Hook
+	mutation   *SessionMutation
 	predicates []predicate.Session
 }
 
@@ -31,42 +30,40 @@ func (su *SessionUpdate) Where(ps ...predicate.Session) *SessionUpdate {
 
 // SetUpdatedAt sets the updated_at field.
 func (su *SessionUpdate) SetUpdatedAt(t time.Time) *SessionUpdate {
-	su.updated_at = &t
-	return su
-}
-
-// SetSource sets the source field.
-func (su *SessionUpdate) SetSource(s session.Source) *SessionUpdate {
-	su.source = &s
-	return su
-}
-
-// SetExpiresAt sets the expires_at field.
-func (su *SessionUpdate) SetExpiresAt(t time.Time) *SessionUpdate {
-	su.expires_at = &t
-	return su
-}
-
-// SetNillableExpiresAt sets the expires_at field if the given value is not nil.
-func (su *SessionUpdate) SetNillableExpiresAt(t *time.Time) *SessionUpdate {
-	if t != nil {
-		su.SetExpiresAt(*t)
-	}
+	su.mutation.SetUpdatedAt(t)
 	return su
 }
 
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (su *SessionUpdate) Save(ctx context.Context) (int, error) {
-	if su.updated_at == nil {
+	if _, ok := su.mutation.UpdatedAt(); !ok {
 		v := session.UpdateDefaultUpdatedAt()
-		su.updated_at = &v
+		su.mutation.SetUpdatedAt(v)
 	}
-	if su.source != nil {
-		if err := session.SourceValidator(*su.source); err != nil {
-			return 0, fmt.Errorf("ent: validator failed for field \"source\": %v", err)
+	var (
+		err      error
+		affected int
+	)
+	if len(su.hooks) == 0 {
+		affected, err = su.sqlSave(ctx)
+	} else {
+		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+			mutation, ok := m.(*SessionMutation)
+			if !ok {
+				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			su.mutation = mutation
+			affected, err = su.sqlSave(ctx)
+			return affected, err
+		})
+		for i := len(su.hooks) - 1; i >= 0; i-- {
+			mut = su.hooks[i](mut)
+		}
+		if _, err := mut.Mutate(ctx, su.mutation); err != nil {
+			return 0, err
 		}
 	}
-	return su.sqlSave(ctx)
+	return affected, err
 }
 
 // SaveX is like Save, but panics if an error occurs.
@@ -92,111 +89,84 @@ func (su *SessionUpdate) ExecX(ctx context.Context) {
 }
 
 func (su *SessionUpdate) sqlSave(ctx context.Context) (n int, err error) {
-	var (
-		builder  = sql.Dialect(su.driver.Dialect())
-		selector = builder.Select(session.FieldID).From(builder.Table(session.Table))
-	)
-	for _, p := range su.predicates {
-		p(selector)
+	_spec := &sqlgraph.UpdateSpec{
+		Node: &sqlgraph.NodeSpec{
+			Table:   session.Table,
+			Columns: session.Columns,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: session.FieldID,
+			},
+		},
 	}
-	rows := &sql.Rows{}
-	query, args := selector.Query()
-	if err = su.driver.Query(ctx, query, args, rows); err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-
-	var ids []int
-	for rows.Next() {
-		var id int
-		if err := rows.Scan(&id); err != nil {
-			return 0, fmt.Errorf("ent: failed reading id: %v", err)
-		}
-		ids = append(ids, id)
-	}
-	if len(ids) == 0 {
-		return 0, nil
-	}
-
-	tx, err := su.driver.Tx(ctx)
-	if err != nil {
-		return 0, err
-	}
-	var (
-		res     sql.Result
-		updater = builder.Update(session.Table)
-	)
-	updater = updater.Where(sql.InInts(session.FieldID, ids...))
-	if value := su.updated_at; value != nil {
-		updater.Set(session.FieldUpdatedAt, *value)
-	}
-	if value := su.source; value != nil {
-		updater.Set(session.FieldSource, *value)
-	}
-	if value := su.expires_at; value != nil {
-		updater.Set(session.FieldExpiresAt, *value)
-	}
-	if !updater.Empty() {
-		query, args := updater.Query()
-		if err := tx.Exec(ctx, query, args, &res); err != nil {
-			return 0, rollback(tx, err)
+	if ps := su.predicates; len(ps) > 0 {
+		_spec.Predicate = func(selector *sql.Selector) {
+			for i := range ps {
+				ps[i](selector)
+			}
 		}
 	}
-	if err = tx.Commit(); err != nil {
+	if value, ok := su.mutation.UpdatedAt(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: session.FieldUpdatedAt,
+		})
+	}
+	if n, err = sqlgraph.UpdateNodes(ctx, su.driver, _spec); err != nil {
+		if _, ok := err.(*sqlgraph.NotFoundError); ok {
+			err = &NotFoundError{session.Label}
+		} else if cerr, ok := isSQLConstraintError(err); ok {
+			err = cerr
+		}
 		return 0, err
 	}
-	return len(ids), nil
+	return n, nil
 }
 
 // SessionUpdateOne is the builder for updating a single Session entity.
 type SessionUpdateOne struct {
 	config
-	id int
-
-	updated_at *time.Time
-
-	source     *session.Source
-	expires_at *time.Time
+	hooks    []Hook
+	mutation *SessionMutation
 }
 
 // SetUpdatedAt sets the updated_at field.
 func (suo *SessionUpdateOne) SetUpdatedAt(t time.Time) *SessionUpdateOne {
-	suo.updated_at = &t
-	return suo
-}
-
-// SetSource sets the source field.
-func (suo *SessionUpdateOne) SetSource(s session.Source) *SessionUpdateOne {
-	suo.source = &s
-	return suo
-}
-
-// SetExpiresAt sets the expires_at field.
-func (suo *SessionUpdateOne) SetExpiresAt(t time.Time) *SessionUpdateOne {
-	suo.expires_at = &t
-	return suo
-}
-
-// SetNillableExpiresAt sets the expires_at field if the given value is not nil.
-func (suo *SessionUpdateOne) SetNillableExpiresAt(t *time.Time) *SessionUpdateOne {
-	if t != nil {
-		suo.SetExpiresAt(*t)
-	}
+	suo.mutation.SetUpdatedAt(t)
 	return suo
 }
 
 // Save executes the query and returns the updated entity.
 func (suo *SessionUpdateOne) Save(ctx context.Context) (*Session, error) {
-	if suo.updated_at == nil {
+	if _, ok := suo.mutation.UpdatedAt(); !ok {
 		v := session.UpdateDefaultUpdatedAt()
-		suo.updated_at = &v
+		suo.mutation.SetUpdatedAt(v)
 	}
-	if suo.source != nil {
-		if err := session.SourceValidator(*suo.source); err != nil {
-			return nil, fmt.Errorf("ent: validator failed for field \"source\": %v", err)
+	var (
+		err  error
+		node *Session
+	)
+	if len(suo.hooks) == 0 {
+		node, err = suo.sqlSave(ctx)
+	} else {
+		var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+			mutation, ok := m.(*SessionMutation)
+			if !ok {
+				return nil, fmt.Errorf("unexpected mutation type %T", m)
+			}
+			suo.mutation = mutation
+			node, err = suo.sqlSave(ctx)
+			return node, err
+		})
+		for i := len(suo.hooks) - 1; i >= 0; i-- {
+			mut = suo.hooks[i](mut)
+		}
+		if _, err := mut.Mutate(ctx, suo.mutation); err != nil {
+			return nil, err
 		}
 	}
-	return suo.sqlSave(ctx)
+	return node, err
 }
 
 // SaveX is like Save, but panics if an error occurs.
@@ -222,63 +192,37 @@ func (suo *SessionUpdateOne) ExecX(ctx context.Context) {
 }
 
 func (suo *SessionUpdateOne) sqlSave(ctx context.Context) (s *Session, err error) {
-	var (
-		builder  = sql.Dialect(suo.driver.Dialect())
-		selector = builder.Select(session.Columns...).From(builder.Table(session.Table))
-	)
-	session.ID(suo.id)(selector)
-	rows := &sql.Rows{}
-	query, args := selector.Query()
-	if err = suo.driver.Query(ctx, query, args, rows); err != nil {
-		return nil, err
+	_spec := &sqlgraph.UpdateSpec{
+		Node: &sqlgraph.NodeSpec{
+			Table:   session.Table,
+			Columns: session.Columns,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: session.FieldID,
+			},
+		},
 	}
-	defer rows.Close()
-
-	var ids []int
-	for rows.Next() {
-		var id int
-		s = &Session{config: suo.config}
-		if err := s.FromRows(rows); err != nil {
-			return nil, fmt.Errorf("ent: failed scanning row into Session: %v", err)
+	id, ok := suo.mutation.ID()
+	if !ok {
+		return nil, fmt.Errorf("missing Session.ID for update")
+	}
+	_spec.Node.ID.Value = id
+	if value, ok := suo.mutation.UpdatedAt(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: session.FieldUpdatedAt,
+		})
+	}
+	s = &Session{config: suo.config}
+	_spec.Assign = s.assignValues
+	_spec.ScanValues = s.scanValues()
+	if err = sqlgraph.UpdateNode(ctx, suo.driver, _spec); err != nil {
+		if _, ok := err.(*sqlgraph.NotFoundError); ok {
+			err = &NotFoundError{session.Label}
+		} else if cerr, ok := isSQLConstraintError(err); ok {
+			err = cerr
 		}
-		id = s.ID
-		ids = append(ids, id)
-	}
-	switch n := len(ids); {
-	case n == 0:
-		return nil, &ErrNotFound{fmt.Sprintf("Session with id: %v", suo.id)}
-	case n > 1:
-		return nil, fmt.Errorf("ent: more than one Session with the same id: %v", suo.id)
-	}
-
-	tx, err := suo.driver.Tx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var (
-		res     sql.Result
-		updater = builder.Update(session.Table)
-	)
-	updater = updater.Where(sql.InInts(session.FieldID, ids...))
-	if value := suo.updated_at; value != nil {
-		updater.Set(session.FieldUpdatedAt, *value)
-		s.UpdatedAt = *value
-	}
-	if value := suo.source; value != nil {
-		updater.Set(session.FieldSource, *value)
-		s.Source = *value
-	}
-	if value := suo.expires_at; value != nil {
-		updater.Set(session.FieldExpiresAt, *value)
-		s.ExpiresAt = *value
-	}
-	if !updater.Empty() {
-		query, args := updater.Query()
-		if err := tx.Exec(ctx, query, args, &res); err != nil {
-			return nil, rollback(tx, err)
-		}
-	}
-	if err = tx.Commit(); err != nil {
 		return nil, err
 	}
 	return s, nil

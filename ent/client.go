@@ -32,15 +32,18 @@ type Client struct {
 
 // NewClient creates a new client configured with the given options.
 func NewClient(opts ...Option) *Client {
-	c := config{log: log.Println}
-	c.options(opts...)
-	return &Client{
-		config:    c,
-		Schema:    migrate.NewSchema(c.driver),
-		Challenge: NewChallengeClient(c),
-		Guild:     NewGuildClient(c),
-		Session:   NewSessionClient(c),
-	}
+	cfg := config{log: log.Println, hooks: &hooks{}}
+	cfg.options(opts...)
+	client := &Client{config: cfg}
+	client.init()
+	return client
+}
+
+func (c *Client) init() {
+	c.Schema = migrate.NewSchema(c.driver)
+	c.Challenge = NewChallengeClient(c.config)
+	c.Guild = NewGuildClient(c.config)
+	c.Session = NewSessionClient(c.config)
 }
 
 // Open opens a connection to the database specified by the driver name and a
@@ -54,7 +57,6 @@ func Open(driverName, dataSourceName string, options ...Option) (*Client, error)
 			return nil, err
 		}
 		return NewClient(append(options, Driver(drv))...), nil
-
 	default:
 		return nil, fmt.Errorf("unsupported driver: %q", driverName)
 	}
@@ -69,7 +71,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ent: starting a transaction: %v", err)
 	}
-	cfg := config{driver: tx, log: c.log, debug: c.debug}
+	cfg := config{driver: tx, log: c.log, debug: c.debug, hooks: c.hooks}
 	return &Tx{
 		config:    cfg,
 		Challenge: NewChallengeClient(cfg),
@@ -89,19 +91,23 @@ func (c *Client) Debug() *Client {
 	if c.debug {
 		return c
 	}
-	cfg := config{driver: dialect.Debug(c.driver, c.log), log: c.log, debug: true}
-	return &Client{
-		config:    cfg,
-		Schema:    migrate.NewSchema(cfg.driver),
-		Challenge: NewChallengeClient(cfg),
-		Guild:     NewGuildClient(cfg),
-		Session:   NewSessionClient(cfg),
-	}
+	cfg := config{driver: dialect.Debug(c.driver, c.log), log: c.log, debug: true, hooks: c.hooks}
+	client := &Client{config: cfg}
+	client.init()
+	return client
 }
 
 // Close closes the database connection and prevents new queries from starting.
 func (c *Client) Close() error {
 	return c.driver.Close()
+}
+
+// Use adds the mutation hooks to all the entity clients.
+// In order to add hooks to a specific client, call: `client.Node.Use(...)`.
+func (c *Client) Use(hooks ...Hook) {
+	c.Challenge.Use(hooks...)
+	c.Guild.Use(hooks...)
+	c.Session.Use(hooks...)
 }
 
 // ChallengeClient is a client for the Challenge schema.
@@ -114,14 +120,22 @@ func NewChallengeClient(c config) *ChallengeClient {
 	return &ChallengeClient{config: c}
 }
 
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `challenge.Hooks(f(g(h())))`.
+func (c *ChallengeClient) Use(hooks ...Hook) {
+	c.hooks.Challenge = append(c.hooks.Challenge, hooks...)
+}
+
 // Create returns a create builder for Challenge.
 func (c *ChallengeClient) Create() *ChallengeCreate {
-	return &ChallengeCreate{config: c.config}
+	mutation := newChallengeMutation(c.config, OpCreate)
+	return &ChallengeCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Update returns an update builder for Challenge.
 func (c *ChallengeClient) Update() *ChallengeUpdate {
-	return &ChallengeUpdate{config: c.config}
+	mutation := newChallengeMutation(c.config, OpUpdate)
+	return &ChallengeUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
@@ -131,12 +145,15 @@ func (c *ChallengeClient) UpdateOne(ch *Challenge) *ChallengeUpdateOne {
 
 // UpdateOneID returns an update builder for the given id.
 func (c *ChallengeClient) UpdateOneID(id int) *ChallengeUpdateOne {
-	return &ChallengeUpdateOne{config: c.config, id: id}
+	mutation := newChallengeMutation(c.config, OpUpdateOne)
+	mutation.id = &id
+	return &ChallengeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for Challenge.
 func (c *ChallengeClient) Delete() *ChallengeDelete {
-	return &ChallengeDelete{config: c.config}
+	mutation := newChallengeMutation(c.config, OpDelete)
+	return &ChallengeDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // DeleteOne returns a delete builder for the given entity.
@@ -146,7 +163,10 @@ func (c *ChallengeClient) DeleteOne(ch *Challenge) *ChallengeDeleteOne {
 
 // DeleteOneID returns a delete builder for the given id.
 func (c *ChallengeClient) DeleteOneID(id int) *ChallengeDeleteOne {
-	return &ChallengeDeleteOne{c.Delete().Where(challenge.ID(id))}
+	builder := c.Delete().Where(challenge.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ChallengeDeleteOne{builder}
 }
 
 // Create returns a query builder for Challenge.
@@ -168,6 +188,11 @@ func (c *ChallengeClient) GetX(ctx context.Context, id int) *Challenge {
 	return ch
 }
 
+// Hooks returns the client hooks.
+func (c *ChallengeClient) Hooks() []Hook {
+	return c.hooks.Challenge
+}
+
 // GuildClient is a client for the Guild schema.
 type GuildClient struct {
 	config
@@ -178,14 +203,22 @@ func NewGuildClient(c config) *GuildClient {
 	return &GuildClient{config: c}
 }
 
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `guild.Hooks(f(g(h())))`.
+func (c *GuildClient) Use(hooks ...Hook) {
+	c.hooks.Guild = append(c.hooks.Guild, hooks...)
+}
+
 // Create returns a create builder for Guild.
 func (c *GuildClient) Create() *GuildCreate {
-	return &GuildCreate{config: c.config}
+	mutation := newGuildMutation(c.config, OpCreate)
+	return &GuildCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Update returns an update builder for Guild.
 func (c *GuildClient) Update() *GuildUpdate {
-	return &GuildUpdate{config: c.config}
+	mutation := newGuildMutation(c.config, OpUpdate)
+	return &GuildUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
@@ -195,12 +228,15 @@ func (c *GuildClient) UpdateOne(gu *Guild) *GuildUpdateOne {
 
 // UpdateOneID returns an update builder for the given id.
 func (c *GuildClient) UpdateOneID(id int) *GuildUpdateOne {
-	return &GuildUpdateOne{config: c.config, id: id}
+	mutation := newGuildMutation(c.config, OpUpdateOne)
+	mutation.id = &id
+	return &GuildUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for Guild.
 func (c *GuildClient) Delete() *GuildDelete {
-	return &GuildDelete{config: c.config}
+	mutation := newGuildMutation(c.config, OpDelete)
+	return &GuildDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // DeleteOne returns a delete builder for the given entity.
@@ -210,7 +246,10 @@ func (c *GuildClient) DeleteOne(gu *Guild) *GuildDeleteOne {
 
 // DeleteOneID returns a delete builder for the given id.
 func (c *GuildClient) DeleteOneID(id int) *GuildDeleteOne {
-	return &GuildDeleteOne{c.Delete().Where(guild.ID(id))}
+	builder := c.Delete().Where(guild.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GuildDeleteOne{builder}
 }
 
 // Create returns a query builder for Guild.
@@ -232,6 +271,11 @@ func (c *GuildClient) GetX(ctx context.Context, id int) *Guild {
 	return gu
 }
 
+// Hooks returns the client hooks.
+func (c *GuildClient) Hooks() []Hook {
+	return c.hooks.Guild
+}
+
 // SessionClient is a client for the Session schema.
 type SessionClient struct {
 	config
@@ -242,14 +286,22 @@ func NewSessionClient(c config) *SessionClient {
 	return &SessionClient{config: c}
 }
 
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `session.Hooks(f(g(h())))`.
+func (c *SessionClient) Use(hooks ...Hook) {
+	c.hooks.Session = append(c.hooks.Session, hooks...)
+}
+
 // Create returns a create builder for Session.
 func (c *SessionClient) Create() *SessionCreate {
-	return &SessionCreate{config: c.config}
+	mutation := newSessionMutation(c.config, OpCreate)
+	return &SessionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Update returns an update builder for Session.
 func (c *SessionClient) Update() *SessionUpdate {
-	return &SessionUpdate{config: c.config}
+	mutation := newSessionMutation(c.config, OpUpdate)
+	return &SessionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
@@ -259,12 +311,15 @@ func (c *SessionClient) UpdateOne(s *Session) *SessionUpdateOne {
 
 // UpdateOneID returns an update builder for the given id.
 func (c *SessionClient) UpdateOneID(id int) *SessionUpdateOne {
-	return &SessionUpdateOne{config: c.config, id: id}
+	mutation := newSessionMutation(c.config, OpUpdateOne)
+	mutation.id = &id
+	return &SessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // Delete returns a delete builder for Session.
 func (c *SessionClient) Delete() *SessionDelete {
-	return &SessionDelete{config: c.config}
+	mutation := newSessionMutation(c.config, OpDelete)
+	return &SessionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // DeleteOne returns a delete builder for the given entity.
@@ -274,7 +329,10 @@ func (c *SessionClient) DeleteOne(s *Session) *SessionDeleteOne {
 
 // DeleteOneID returns a delete builder for the given id.
 func (c *SessionClient) DeleteOneID(id int) *SessionDeleteOne {
-	return &SessionDeleteOne{c.Delete().Where(session.ID(id))}
+	builder := c.Delete().Where(session.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SessionDeleteOne{builder}
 }
 
 // Create returns a query builder for Session.
@@ -294,4 +352,9 @@ func (c *SessionClient) GetX(ctx context.Context, id int) *Session {
 		panic(err)
 	}
 	return s
+}
+
+// Hooks returns the client hooks.
+func (c *SessionClient) Hooks() []Hook {
+	return c.hooks.Session
 }
