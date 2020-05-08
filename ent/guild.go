@@ -18,10 +18,10 @@ type Guild struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID int `json:"id,omitempty"`
-	// CreatedAt holds the value of the "created_at" field.
-	CreatedAt time.Time `json:"created_at,omitempty"`
-	// UpdatedAt holds the value of the "updated_at" field.
-	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// CreateTime holds the value of the "create_time" field.
+	CreateTime time.Time `json:"create_time,omitempty"`
+	// UpdateTime holds the value of the "update_time" field.
+	UpdateTime time.Time `json:"update_time,omitempty"`
 	// Snowflake holds the value of the "snowflake" field.
 	Snowflake string `json:"snowflake,omitempty"`
 	// Message holds the value of the "message" field.
@@ -36,8 +36,8 @@ type Guild struct {
 func (*Guild) scanValues() []interface{} {
 	return []interface{}{
 		&sql.NullInt64{},  // id
-		&sql.NullTime{},   // created_at
-		&sql.NullTime{},   // updated_at
+		&sql.NullTime{},   // create_time
+		&sql.NullTime{},   // update_time
 		&sql.NullString{}, // snowflake
 		&sql.NullString{}, // message
 		&[]byte{},         // categories
@@ -58,14 +58,14 @@ func (gu *Guild) assignValues(values ...interface{}) error {
 	gu.ID = int(value.Int64)
 	values = values[1:]
 	if value, ok := values[0].(*sql.NullTime); !ok {
-		return fmt.Errorf("unexpected type %T for field created_at", values[0])
+		return fmt.Errorf("unexpected type %T for field create_time", values[0])
 	} else if value.Valid {
-		gu.CreatedAt = value.Time
+		gu.CreateTime = value.Time
 	}
 	if value, ok := values[1].(*sql.NullTime); !ok {
-		return fmt.Errorf("unexpected type %T for field updated_at", values[1])
+		return fmt.Errorf("unexpected type %T for field update_time", values[1])
 	} else if value.Valid {
-		gu.UpdatedAt = value.Time
+		gu.UpdateTime = value.Time
 	}
 	if value, ok := values[2].(*sql.NullString); !ok {
 		return fmt.Errorf("unexpected type %T for field snowflake", values[2])
@@ -119,10 +119,10 @@ func (gu *Guild) String() string {
 	var builder strings.Builder
 	builder.WriteString("Guild(")
 	builder.WriteString(fmt.Sprintf("id=%v", gu.ID))
-	builder.WriteString(", created_at=")
-	builder.WriteString(gu.CreatedAt.Format(time.ANSIC))
-	builder.WriteString(", updated_at=")
-	builder.WriteString(gu.UpdatedAt.Format(time.ANSIC))
+	builder.WriteString(", create_time=")
+	builder.WriteString(gu.CreateTime.Format(time.ANSIC))
+	builder.WriteString(", update_time=")
+	builder.WriteString(gu.UpdateTime.Format(time.ANSIC))
 	builder.WriteString(", snowflake=")
 	builder.WriteString(gu.Snowflake)
 	builder.WriteString(", message=")

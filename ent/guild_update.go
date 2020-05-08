@@ -5,7 +5,6 @@ package ent
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/facebookincubator/ent/dialect/sql"
 	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
@@ -29,12 +28,6 @@ func (gu *GuildUpdate) Where(ps ...predicate.Guild) *GuildUpdate {
 	return gu
 }
 
-// SetUpdatedAt sets the updated_at field.
-func (gu *GuildUpdate) SetUpdatedAt(t time.Time) *GuildUpdate {
-	gu.mutation.SetUpdatedAt(t)
-	return gu
-}
-
 // SetMessage sets the message field.
 func (gu *GuildUpdate) SetMessage(s string) *GuildUpdate {
 	gu.mutation.SetMessage(s)
@@ -55,9 +48,9 @@ func (gu *GuildUpdate) SetEntitlements(s []string) *GuildUpdate {
 
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (gu *GuildUpdate) Save(ctx context.Context) (int, error) {
-	if _, ok := gu.mutation.UpdatedAt(); !ok {
-		v := guild.UpdateDefaultUpdatedAt()
-		gu.mutation.SetUpdatedAt(v)
+	if _, ok := gu.mutation.UpdateTime(); !ok {
+		v := guild.UpdateDefaultUpdateTime()
+		gu.mutation.SetUpdateTime(v)
 	}
 	var (
 		err      error
@@ -125,11 +118,11 @@ func (gu *GuildUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			}
 		}
 	}
-	if value, ok := gu.mutation.UpdatedAt(); ok {
+	if value, ok := gu.mutation.UpdateTime(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
 			Value:  value,
-			Column: guild.FieldUpdatedAt,
+			Column: guild.FieldUpdateTime,
 		})
 	}
 	if value, ok := gu.mutation.Message(); ok {
@@ -171,12 +164,6 @@ type GuildUpdateOne struct {
 	mutation *GuildMutation
 }
 
-// SetUpdatedAt sets the updated_at field.
-func (guo *GuildUpdateOne) SetUpdatedAt(t time.Time) *GuildUpdateOne {
-	guo.mutation.SetUpdatedAt(t)
-	return guo
-}
-
 // SetMessage sets the message field.
 func (guo *GuildUpdateOne) SetMessage(s string) *GuildUpdateOne {
 	guo.mutation.SetMessage(s)
@@ -197,9 +184,9 @@ func (guo *GuildUpdateOne) SetEntitlements(s []string) *GuildUpdateOne {
 
 // Save executes the query and returns the updated entity.
 func (guo *GuildUpdateOne) Save(ctx context.Context) (*Guild, error) {
-	if _, ok := guo.mutation.UpdatedAt(); !ok {
-		v := guild.UpdateDefaultUpdatedAt()
-		guo.mutation.SetUpdatedAt(v)
+	if _, ok := guo.mutation.UpdateTime(); !ok {
+		v := guild.UpdateDefaultUpdateTime()
+		guo.mutation.SetUpdateTime(v)
 	}
 	var (
 		err  error
@@ -265,11 +252,11 @@ func (guo *GuildUpdateOne) sqlSave(ctx context.Context) (gu *Guild, err error) {
 		return nil, fmt.Errorf("missing Guild.ID for update")
 	}
 	_spec.Node.ID.Value = id
-	if value, ok := guo.mutation.UpdatedAt(); ok {
+	if value, ok := guo.mutation.UpdateTime(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
 			Value:  value,
-			Column: guild.FieldUpdatedAt,
+			Column: guild.FieldUpdateTime,
 		})
 	}
 	if value, ok := guo.mutation.Message(); ok {

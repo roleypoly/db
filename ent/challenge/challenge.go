@@ -10,9 +10,9 @@ const (
 	// Label holds the string label denoting the challenge type in the database.
 	Label = "challenge"
 	// FieldID holds the string denoting the id field in the database.
-	FieldID          = "id"           // FieldCreatedAt holds the string denoting the created_at vertex property in the database.
-	FieldCreatedAt   = "created_at"   // FieldUpdatedAt holds the string denoting the updated_at vertex property in the database.
-	FieldUpdatedAt   = "updated_at"   // FieldChallengeID holds the string denoting the challenge_id vertex property in the database.
+	FieldID          = "id"           // FieldCreateTime holds the string denoting the create_time vertex property in the database.
+	FieldCreateTime  = "create_time"  // FieldUpdateTime holds the string denoting the update_time vertex property in the database.
+	FieldUpdateTime  = "update_time"  // FieldChallengeID holds the string denoting the challenge_id vertex property in the database.
 	FieldChallengeID = "challenge_id" // FieldUserID holds the string denoting the user_id vertex property in the database.
 	FieldUserID      = "user_id"      // FieldHuman holds the string denoting the human vertex property in the database.
 	FieldHuman       = "human"        // FieldMagic holds the string denoting the magic vertex property in the database.
@@ -26,8 +26,8 @@ const (
 // Columns holds all SQL columns for challenge fields.
 var Columns = []string{
 	FieldID,
-	FieldCreatedAt,
-	FieldUpdatedAt,
+	FieldCreateTime,
+	FieldUpdateTime,
 	FieldChallengeID,
 	FieldUserID,
 	FieldHuman,
@@ -36,12 +36,12 @@ var Columns = []string{
 }
 
 var (
-	// DefaultCreatedAt holds the default value on creation for the created_at field.
-	DefaultCreatedAt func() time.Time
-	// DefaultUpdatedAt holds the default value on creation for the updated_at field.
-	DefaultUpdatedAt func() time.Time
-	// UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
-	UpdateDefaultUpdatedAt func() time.Time
+	// DefaultCreateTime holds the default value on creation for the create_time field.
+	DefaultCreateTime func() time.Time
+	// DefaultUpdateTime holds the default value on creation for the update_time field.
+	DefaultUpdateTime func() time.Time
+	// UpdateDefaultUpdateTime holds the default value on update for the update_time field.
+	UpdateDefaultUpdateTime func() time.Time
 	// DefaultExpiresAt holds the default value on creation for the expires_at field.
 	DefaultExpiresAt func() time.Time
 )

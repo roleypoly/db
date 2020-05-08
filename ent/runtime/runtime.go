@@ -5,6 +5,6 @@ package runtime
 // The schema-stitching logic is generated in github.com/roleypoly/db/ent/runtime.go
 
 const (
-	Version = "v0.1.4"                                          // Version of ent codegen.
-	Sum     = "h1:1Y9icmCryGStA4e8hfNV0VS4wQkoIVZI3tzisus1jTM=" // Sum of ent codegen.
+	Version = "v0.2.1"                                          // Version of ent codegen.
+	Sum     = "h1:l8Au/k8u2r+qfuk5Cq5MJwq75gv1necDQeHWysZFcO4=" // Sum of ent codegen.
 )

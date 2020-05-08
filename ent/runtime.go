@@ -9,8 +9,6 @@ import (
 	"github.com/roleypoly/db/ent/guild"
 	"github.com/roleypoly/db/ent/schema"
 	"github.com/roleypoly/db/ent/session"
-
-	"github.com/facebookincubator/ent"
 )
 
 // The init function reads all schema descriptors with runtime
@@ -18,57 +16,51 @@ import (
 // to their package variables.
 func init() {
 	challengeMixin := schema.Challenge{}.Mixin()
-	challengeMixinFields := [...][]ent.Field{
-		challengeMixin[0].Fields(),
-	}
+	challengeMixinFields0 := challengeMixin[0].Fields()
 	challengeFields := schema.Challenge{}.Fields()
 	_ = challengeFields
-	// challengeDescCreatedAt is the schema descriptor for created_at field.
-	challengeDescCreatedAt := challengeMixinFields[0][0].Descriptor()
-	// challenge.DefaultCreatedAt holds the default value on creation for the created_at field.
-	challenge.DefaultCreatedAt = challengeDescCreatedAt.Default.(func() time.Time)
-	// challengeDescUpdatedAt is the schema descriptor for updated_at field.
-	challengeDescUpdatedAt := challengeMixinFields[0][1].Descriptor()
-	// challenge.DefaultUpdatedAt holds the default value on creation for the updated_at field.
-	challenge.DefaultUpdatedAt = challengeDescUpdatedAt.Default.(func() time.Time)
-	// challenge.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
-	challenge.UpdateDefaultUpdatedAt = challengeDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// challengeDescCreateTime is the schema descriptor for create_time field.
+	challengeDescCreateTime := challengeMixinFields0[0].Descriptor()
+	// challenge.DefaultCreateTime holds the default value on creation for the create_time field.
+	challenge.DefaultCreateTime = challengeDescCreateTime.Default.(func() time.Time)
+	// challengeDescUpdateTime is the schema descriptor for update_time field.
+	challengeDescUpdateTime := challengeMixinFields0[1].Descriptor()
+	// challenge.DefaultUpdateTime holds the default value on creation for the update_time field.
+	challenge.DefaultUpdateTime = challengeDescUpdateTime.Default.(func() time.Time)
+	// challenge.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
+	challenge.UpdateDefaultUpdateTime = challengeDescUpdateTime.UpdateDefault.(func() time.Time)
 	// challengeDescExpiresAt is the schema descriptor for expires_at field.
 	challengeDescExpiresAt := challengeFields[4].Descriptor()
 	// challenge.DefaultExpiresAt holds the default value on creation for the expires_at field.
 	challenge.DefaultExpiresAt = challengeDescExpiresAt.Default.(func() time.Time)
 	guildMixin := schema.Guild{}.Mixin()
-	guildMixinFields := [...][]ent.Field{
-		guildMixin[0].Fields(),
-	}
+	guildMixinFields0 := guildMixin[0].Fields()
 	guildFields := schema.Guild{}.Fields()
 	_ = guildFields
-	// guildDescCreatedAt is the schema descriptor for created_at field.
-	guildDescCreatedAt := guildMixinFields[0][0].Descriptor()
-	// guild.DefaultCreatedAt holds the default value on creation for the created_at field.
-	guild.DefaultCreatedAt = guildDescCreatedAt.Default.(func() time.Time)
-	// guildDescUpdatedAt is the schema descriptor for updated_at field.
-	guildDescUpdatedAt := guildMixinFields[0][1].Descriptor()
-	// guild.DefaultUpdatedAt holds the default value on creation for the updated_at field.
-	guild.DefaultUpdatedAt = guildDescUpdatedAt.Default.(func() time.Time)
-	// guild.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
-	guild.UpdateDefaultUpdatedAt = guildDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// guildDescCreateTime is the schema descriptor for create_time field.
+	guildDescCreateTime := guildMixinFields0[0].Descriptor()
+	// guild.DefaultCreateTime holds the default value on creation for the create_time field.
+	guild.DefaultCreateTime = guildDescCreateTime.Default.(func() time.Time)
+	// guildDescUpdateTime is the schema descriptor for update_time field.
+	guildDescUpdateTime := guildMixinFields0[1].Descriptor()
+	// guild.DefaultUpdateTime holds the default value on creation for the update_time field.
+	guild.DefaultUpdateTime = guildDescUpdateTime.Default.(func() time.Time)
+	// guild.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
+	guild.UpdateDefaultUpdateTime = guildDescUpdateTime.UpdateDefault.(func() time.Time)
 	sessionMixin := schema.Session{}.Mixin()
-	sessionMixinFields := [...][]ent.Field{
-		sessionMixin[0].Fields(),
-	}
+	sessionMixinFields0 := sessionMixin[0].Fields()
 	sessionFields := schema.Session{}.Fields()
 	_ = sessionFields
-	// sessionDescCreatedAt is the schema descriptor for created_at field.
-	sessionDescCreatedAt := sessionMixinFields[0][0].Descriptor()
-	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
-	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
-	// sessionDescUpdatedAt is the schema descriptor for updated_at field.
-	sessionDescUpdatedAt := sessionMixinFields[0][1].Descriptor()
-	// session.DefaultUpdatedAt holds the default value on creation for the updated_at field.
-	session.DefaultUpdatedAt = sessionDescUpdatedAt.Default.(func() time.Time)
-	// session.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
-	session.UpdateDefaultUpdatedAt = sessionDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// sessionDescCreateTime is the schema descriptor for create_time field.
+	sessionDescCreateTime := sessionMixinFields0[0].Descriptor()
+	// session.DefaultCreateTime holds the default value on creation for the create_time field.
+	session.DefaultCreateTime = sessionDescCreateTime.Default.(func() time.Time)
+	// sessionDescUpdateTime is the schema descriptor for update_time field.
+	sessionDescUpdateTime := sessionMixinFields0[1].Descriptor()
+	// session.DefaultUpdateTime holds the default value on creation for the update_time field.
+	session.DefaultUpdateTime = sessionDescUpdateTime.Default.(func() time.Time)
+	// session.UpdateDefaultUpdateTime holds the default value on update for the update_time field.
+	session.UpdateDefaultUpdateTime = sessionDescUpdateTime.UpdateDefault.(func() time.Time)
 	// sessionDescExpiresAt is the schema descriptor for expires_at field.
 	sessionDescExpiresAt := sessionFields[3].Descriptor()
 	// session.DefaultExpiresAt holds the default value on creation for the expires_at field.

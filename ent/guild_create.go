@@ -21,30 +21,30 @@ type GuildCreate struct {
 	hooks    []Hook
 }
 
-// SetCreatedAt sets the created_at field.
-func (gc *GuildCreate) SetCreatedAt(t time.Time) *GuildCreate {
-	gc.mutation.SetCreatedAt(t)
+// SetCreateTime sets the create_time field.
+func (gc *GuildCreate) SetCreateTime(t time.Time) *GuildCreate {
+	gc.mutation.SetCreateTime(t)
 	return gc
 }
 
-// SetNillableCreatedAt sets the created_at field if the given value is not nil.
-func (gc *GuildCreate) SetNillableCreatedAt(t *time.Time) *GuildCreate {
+// SetNillableCreateTime sets the create_time field if the given value is not nil.
+func (gc *GuildCreate) SetNillableCreateTime(t *time.Time) *GuildCreate {
 	if t != nil {
-		gc.SetCreatedAt(*t)
+		gc.SetCreateTime(*t)
 	}
 	return gc
 }
 
-// SetUpdatedAt sets the updated_at field.
-func (gc *GuildCreate) SetUpdatedAt(t time.Time) *GuildCreate {
-	gc.mutation.SetUpdatedAt(t)
+// SetUpdateTime sets the update_time field.
+func (gc *GuildCreate) SetUpdateTime(t time.Time) *GuildCreate {
+	gc.mutation.SetUpdateTime(t)
 	return gc
 }
 
-// SetNillableUpdatedAt sets the updated_at field if the given value is not nil.
-func (gc *GuildCreate) SetNillableUpdatedAt(t *time.Time) *GuildCreate {
+// SetNillableUpdateTime sets the update_time field if the given value is not nil.
+func (gc *GuildCreate) SetNillableUpdateTime(t *time.Time) *GuildCreate {
 	if t != nil {
-		gc.SetUpdatedAt(*t)
+		gc.SetUpdateTime(*t)
 	}
 	return gc
 }
@@ -75,13 +75,13 @@ func (gc *GuildCreate) SetEntitlements(s []string) *GuildCreate {
 
 // Save creates the Guild in the database.
 func (gc *GuildCreate) Save(ctx context.Context) (*Guild, error) {
-	if _, ok := gc.mutation.CreatedAt(); !ok {
-		v := guild.DefaultCreatedAt()
-		gc.mutation.SetCreatedAt(v)
+	if _, ok := gc.mutation.CreateTime(); !ok {
+		v := guild.DefaultCreateTime()
+		gc.mutation.SetCreateTime(v)
 	}
-	if _, ok := gc.mutation.UpdatedAt(); !ok {
-		v := guild.DefaultUpdatedAt()
-		gc.mutation.SetUpdatedAt(v)
+	if _, ok := gc.mutation.UpdateTime(); !ok {
+		v := guild.DefaultUpdateTime()
+		gc.mutation.SetUpdateTime(v)
 	}
 	if _, ok := gc.mutation.Snowflake(); !ok {
 		return nil, errors.New("ent: missing required field \"snowflake\"")
@@ -141,21 +141,21 @@ func (gc *GuildCreate) sqlSave(ctx context.Context) (*Guild, error) {
 			},
 		}
 	)
-	if value, ok := gc.mutation.CreatedAt(); ok {
+	if value, ok := gc.mutation.CreateTime(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
 			Value:  value,
-			Column: guild.FieldCreatedAt,
+			Column: guild.FieldCreateTime,
 		})
-		gu.CreatedAt = value
+		gu.CreateTime = value
 	}
-	if value, ok := gc.mutation.UpdatedAt(); ok {
+	if value, ok := gc.mutation.UpdateTime(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
 			Value:  value,
-			Column: guild.FieldUpdatedAt,
+			Column: guild.FieldUpdateTime,
 		})
-		gu.UpdatedAt = value
+		gu.UpdateTime = value
 	}
 	if value, ok := gc.mutation.Snowflake(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{

@@ -23,8 +23,9 @@ type GuildQuery struct {
 	order      []Order
 	unique     []string
 	predicates []predicate.Guild
-	// intermediate query.
-	sql *sql.Selector
+	// intermediate query (i.e. traversal path).
+	sql  *sql.Selector
+	path func(context.Context) (*sql.Selector, error)
 }
 
 // Where adds a new predicate for the builder.
@@ -147,6 +148,9 @@ func (gq *GuildQuery) OnlyXID(ctx context.Context) int {
 
 // All executes the query and returns a list of Guilds.
 func (gq *GuildQuery) All(ctx context.Context) ([]*Guild, error) {
+	if err := gq.prepareQuery(ctx); err != nil {
+		return nil, err
+	}
 	return gq.sqlAll(ctx)
 }
 
@@ -179,6 +183,9 @@ func (gq *GuildQuery) IDsX(ctx context.Context) []int {
 
 // Count returns the count of the given query.
 func (gq *GuildQuery) Count(ctx context.Context) (int, error) {
+	if err := gq.prepareQuery(ctx); err != nil {
+		return 0, err
+	}
 	return gq.sqlCount(ctx)
 }
 
@@ -193,6 +200,9 @@ func (gq *GuildQuery) CountX(ctx context.Context) int {
 
 // Exist returns true if the query has elements in the graph.
 func (gq *GuildQuery) Exist(ctx context.Context) (bool, error) {
+	if err := gq.prepareQuery(ctx); err != nil {
+		return false, err
+	}
 	return gq.sqlExist(ctx)
 }
 
@@ -216,7 +226,8 @@ func (gq *GuildQuery) Clone() *GuildQuery {
 		unique:     append([]string{}, gq.unique...),
 		predicates: append([]predicate.Guild{}, gq.predicates...),
 		// clone intermediate query.
-		sql: gq.sql.Clone(),
+		sql:  gq.sql.Clone(),
+		path: gq.path,
 	}
 }
 
@@ -226,19 +237,24 @@ func (gq *GuildQuery) Clone() *GuildQuery {
 // Example:
 //
 //	var v []struct {
-//		CreatedAt time.Time `json:"created_at,omitempty"`
+//		CreateTime time.Time `json:"create_time,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.Guild.Query().
-//		GroupBy(guild.FieldCreatedAt).
+//		GroupBy(guild.FieldCreateTime).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 //
 func (gq *GuildQuery) GroupBy(field string, fields ...string) *GuildGroupBy {
 	group := &GuildGroupBy{config: gq.config}
 	group.fields = append([]string{field}, fields...)
-	group.sql = gq.sqlQuery()
+	group.path = func(ctx context.Context) (prev *sql.Selector, err error) {
+		if err := gq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		return gq.sqlQuery(), nil
+	}
 	return group
 }
 
@@ -247,18 +263,34 @@ func (gq *GuildQuery) GroupBy(field string, fields ...string) *GuildGroupBy {
 // Example:
 //
 //	var v []struct {
-//		CreatedAt time.Time `json:"created_at,omitempty"`
+//		CreateTime time.Time `json:"create_time,omitempty"`
 //	}
 //
 //	client.Guild.Query().
-//		Select(guild.FieldCreatedAt).
+//		Select(guild.FieldCreateTime).
 //		Scan(ctx, &v)
 //
 func (gq *GuildQuery) Select(field string, fields ...string) *GuildSelect {
 	selector := &GuildSelect{config: gq.config}
 	selector.fields = append([]string{field}, fields...)
-	selector.sql = gq.sqlQuery()
+	selector.path = func(ctx context.Context) (prev *sql.Selector, err error) {
+		if err := gq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		return gq.sqlQuery(), nil
+	}
 	return selector
+}
+
+func (gq *GuildQuery) prepareQuery(ctx context.Context) error {
+	if gq.path != nil {
+		prev, err := gq.path(ctx)
+		if err != nil {
+			return err
+		}
+		gq.sql = prev
+	}
+	return nil
 }
 
 func (gq *GuildQuery) sqlAll(ctx context.Context) ([]*Guild, error) {
@@ -367,8 +399,9 @@ type GuildGroupBy struct {
 	config
 	fields []string
 	fns    []Aggregate
-	// intermediate query.
-	sql *sql.Selector
+	// intermediate query (i.e. traversal path).
+	sql  *sql.Selector
+	path func(context.Context) (*sql.Selector, error)
 }
 
 // Aggregate adds the given aggregation functions to the group-by query.
@@ -379,6 +412,11 @@ func (ggb *GuildGroupBy) Aggregate(fns ...Aggregate) *GuildGroupBy {
 
 // Scan applies the group-by query and scan the result into the given value.
 func (ggb *GuildGroupBy) Scan(ctx context.Context, v interface{}) error {
+	query, err := ggb.path(ctx)
+	if err != nil {
+		return err
+	}
+	ggb.sql = query
 	return ggb.sqlScan(ctx, v)
 }
 
@@ -497,12 +535,18 @@ func (ggb *GuildGroupBy) sqlQuery() *sql.Selector {
 type GuildSelect struct {
 	config
 	fields []string
-	// intermediate queries.
-	sql *sql.Selector
+	// intermediate query (i.e. traversal path).
+	sql  *sql.Selector
+	path func(context.Context) (*sql.Selector, error)
 }
 
 // Scan applies the selector query and scan the result into the given value.
 func (gs *GuildSelect) Scan(ctx context.Context, v interface{}) error {
+	query, err := gs.path(ctx)
+	if err != nil {
+		return err
+	}
+	gs.sql = query
 	return gs.sqlScan(ctx, v)
 }
 

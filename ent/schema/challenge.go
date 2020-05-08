@@ -5,7 +5,7 @@ import (
 
 	"github.com/facebookincubator/ent"
 	"github.com/facebookincubator/ent/schema/field"
-	"github.com/roleypoly/db/ent/mixin"
+	"github.com/facebookincubator/ent/schema/mixin"
 )
 
 // Challenge holds the schema definition for the Challenge entity.
@@ -41,6 +41,6 @@ func (Challenge) Edges() []ent.Edge {
 // Mixin of the Challenge.
 func (Challenge) Mixin() []ent.Mixin {
 	return []ent.Mixin{
-		mixin.TimeMixin{},
+		mixin.Time{},
 	}
 }

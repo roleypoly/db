@@ -23,8 +23,9 @@ type ChallengeQuery struct {
 	order      []Order
 	unique     []string
 	predicates []predicate.Challenge
-	// intermediate query.
-	sql *sql.Selector
+	// intermediate query (i.e. traversal path).
+	sql  *sql.Selector
+	path func(context.Context) (*sql.Selector, error)
 }
 
 // Where adds a new predicate for the builder.
@@ -147,6 +148,9 @@ func (cq *ChallengeQuery) OnlyXID(ctx context.Context) int {
 
 // All executes the query and returns a list of Challenges.
 func (cq *ChallengeQuery) All(ctx context.Context) ([]*Challenge, error) {
+	if err := cq.prepareQuery(ctx); err != nil {
+		return nil, err
+	}
 	return cq.sqlAll(ctx)
 }
 
@@ -179,6 +183,9 @@ func (cq *ChallengeQuery) IDsX(ctx context.Context) []int {
 
 // Count returns the count of the given query.
 func (cq *ChallengeQuery) Count(ctx context.Context) (int, error) {
+	if err := cq.prepareQuery(ctx); err != nil {
+		return 0, err
+	}
 	return cq.sqlCount(ctx)
 }
 
@@ -193,6 +200,9 @@ func (cq *ChallengeQuery) CountX(ctx context.Context) int {
 
 // Exist returns true if the query has elements in the graph.
 func (cq *ChallengeQuery) Exist(ctx context.Context) (bool, error) {
+	if err := cq.prepareQuery(ctx); err != nil {
+		return false, err
+	}
 	return cq.sqlExist(ctx)
 }
 
@@ -216,7 +226,8 @@ func (cq *ChallengeQuery) Clone() *ChallengeQuery {
 		unique:     append([]string{}, cq.unique...),
 		predicates: append([]predicate.Challenge{}, cq.predicates...),
 		// clone intermediate query.
-		sql: cq.sql.Clone(),
+		sql:  cq.sql.Clone(),
+		path: cq.path,
 	}
 }
 
@@ -226,19 +237,24 @@ func (cq *ChallengeQuery) Clone() *ChallengeQuery {
 // Example:
 //
 //	var v []struct {
-//		CreatedAt time.Time `json:"created_at,omitempty"`
+//		CreateTime time.Time `json:"create_time,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.Challenge.Query().
-//		GroupBy(challenge.FieldCreatedAt).
+//		GroupBy(challenge.FieldCreateTime).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 //
 func (cq *ChallengeQuery) GroupBy(field string, fields ...string) *ChallengeGroupBy {
 	group := &ChallengeGroupBy{config: cq.config}
 	group.fields = append([]string{field}, fields...)
-	group.sql = cq.sqlQuery()
+	group.path = func(ctx context.Context) (prev *sql.Selector, err error) {
+		if err := cq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		return cq.sqlQuery(), nil
+	}
 	return group
 }
 
@@ -247,18 +263,34 @@ func (cq *ChallengeQuery) GroupBy(field string, fields ...string) *ChallengeGrou
 // Example:
 //
 //	var v []struct {
-//		CreatedAt time.Time `json:"created_at,omitempty"`
+//		CreateTime time.Time `json:"create_time,omitempty"`
 //	}
 //
 //	client.Challenge.Query().
-//		Select(challenge.FieldCreatedAt).
+//		Select(challenge.FieldCreateTime).
 //		Scan(ctx, &v)
 //
 func (cq *ChallengeQuery) Select(field string, fields ...string) *ChallengeSelect {
 	selector := &ChallengeSelect{config: cq.config}
 	selector.fields = append([]string{field}, fields...)
-	selector.sql = cq.sqlQuery()
+	selector.path = func(ctx context.Context) (prev *sql.Selector, err error) {
+		if err := cq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		return cq.sqlQuery(), nil
+	}
 	return selector
+}
+
+func (cq *ChallengeQuery) prepareQuery(ctx context.Context) error {
+	if cq.path != nil {
+		prev, err := cq.path(ctx)
+		if err != nil {
+			return err
+		}
+		cq.sql = prev
+	}
+	return nil
 }
 
 func (cq *ChallengeQuery) sqlAll(ctx context.Context) ([]*Challenge, error) {
@@ -367,8 +399,9 @@ type ChallengeGroupBy struct {
 	config
 	fields []string
 	fns    []Aggregate
-	// intermediate query.
-	sql *sql.Selector
+	// intermediate query (i.e. traversal path).
+	sql  *sql.Selector
+	path func(context.Context) (*sql.Selector, error)
 }
 
 // Aggregate adds the given aggregation functions to the group-by query.
@@ -379,6 +412,11 @@ func (cgb *ChallengeGroupBy) Aggregate(fns ...Aggregate) *ChallengeGroupBy {
 
 // Scan applies the group-by query and scan the result into the given value.
 func (cgb *ChallengeGroupBy) Scan(ctx context.Context, v interface{}) error {
+	query, err := cgb.path(ctx)
+	if err != nil {
+		return err
+	}
+	cgb.sql = query
 	return cgb.sqlScan(ctx, v)
 }
 
@@ -497,12 +535,18 @@ func (cgb *ChallengeGroupBy) sqlQuery() *sql.Selector {
 type ChallengeSelect struct {
 	config
 	fields []string
-	// intermediate queries.
-	sql *sql.Selector
+	// intermediate query (i.e. traversal path).
+	sql  *sql.Selector
+	path func(context.Context) (*sql.Selector, error)
 }
 
 // Scan applies the selector query and scan the result into the given value.
 func (cs *ChallengeSelect) Scan(ctx context.Context, v interface{}) error {
+	query, err := cs.path(ctx)
+	if err != nil {
+		return err
+	}
+	cs.sql = query
 	return cs.sqlScan(ctx, v)
 }
 

@@ -5,7 +5,6 @@ package ent
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/facebookincubator/ent/dialect/sql"
 	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
@@ -28,17 +27,11 @@ func (cu *ChallengeUpdate) Where(ps ...predicate.Challenge) *ChallengeUpdate {
 	return cu
 }
 
-// SetUpdatedAt sets the updated_at field.
-func (cu *ChallengeUpdate) SetUpdatedAt(t time.Time) *ChallengeUpdate {
-	cu.mutation.SetUpdatedAt(t)
-	return cu
-}
-
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (cu *ChallengeUpdate) Save(ctx context.Context) (int, error) {
-	if _, ok := cu.mutation.UpdatedAt(); !ok {
-		v := challenge.UpdateDefaultUpdatedAt()
-		cu.mutation.SetUpdatedAt(v)
+	if _, ok := cu.mutation.UpdateTime(); !ok {
+		v := challenge.UpdateDefaultUpdateTime()
+		cu.mutation.SetUpdateTime(v)
 	}
 	var (
 		err      error
@@ -106,11 +99,11 @@ func (cu *ChallengeUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			}
 		}
 	}
-	if value, ok := cu.mutation.UpdatedAt(); ok {
+	if value, ok := cu.mutation.UpdateTime(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
 			Value:  value,
-			Column: challenge.FieldUpdatedAt,
+			Column: challenge.FieldUpdateTime,
 		})
 	}
 	if n, err = sqlgraph.UpdateNodes(ctx, cu.driver, _spec); err != nil {
@@ -131,17 +124,11 @@ type ChallengeUpdateOne struct {
 	mutation *ChallengeMutation
 }
 
-// SetUpdatedAt sets the updated_at field.
-func (cuo *ChallengeUpdateOne) SetUpdatedAt(t time.Time) *ChallengeUpdateOne {
-	cuo.mutation.SetUpdatedAt(t)
-	return cuo
-}
-
 // Save executes the query and returns the updated entity.
 func (cuo *ChallengeUpdateOne) Save(ctx context.Context) (*Challenge, error) {
-	if _, ok := cuo.mutation.UpdatedAt(); !ok {
-		v := challenge.UpdateDefaultUpdatedAt()
-		cuo.mutation.SetUpdatedAt(v)
+	if _, ok := cuo.mutation.UpdateTime(); !ok {
+		v := challenge.UpdateDefaultUpdateTime()
+		cuo.mutation.SetUpdateTime(v)
 	}
 	var (
 		err  error
@@ -207,11 +194,11 @@ func (cuo *ChallengeUpdateOne) sqlSave(ctx context.Context) (c *Challenge, err e
 		return nil, fmt.Errorf("missing Challenge.ID for update")
 	}
 	_spec.Node.ID.Value = id
-	if value, ok := cuo.mutation.UpdatedAt(); ok {
+	if value, ok := cuo.mutation.UpdateTime(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
 			Value:  value,
-			Column: challenge.FieldUpdatedAt,
+			Column: challenge.FieldUpdateTime,
 		})
 	}
 	c = &Challenge{config: cuo.config}

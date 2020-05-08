@@ -11,8 +11,8 @@ var (
 	// ChallengesColumns holds the columns for the "challenges" table.
 	ChallengesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "create_time", Type: field.TypeTime},
+		{Name: "update_time", Type: field.TypeTime},
 		{Name: "challenge_id", Type: field.TypeString, Unique: true, Size: 2147483647},
 		{Name: "user_id", Type: field.TypeString, Unique: true, Size: 2147483647},
 		{Name: "human", Type: field.TypeString, Unique: true},
@@ -29,8 +29,8 @@ var (
 	// GuildsColumns holds the columns for the "guilds" table.
 	GuildsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "create_time", Type: field.TypeTime},
+		{Name: "update_time", Type: field.TypeTime},
 		{Name: "snowflake", Type: field.TypeString, Unique: true, Size: 2147483647},
 		{Name: "message", Type: field.TypeString, Size: 2147483647},
 		{Name: "categories", Type: field.TypeJSON},
@@ -46,8 +46,8 @@ var (
 	// SessionsColumns holds the columns for the "sessions" table.
 	SessionsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "create_time", Type: field.TypeTime},
+		{Name: "update_time", Type: field.TypeTime},
 		{Name: "session_id", Type: field.TypeString, Unique: true, Size: 2147483647},
 		{Name: "user_id", Type: field.TypeString, Unique: true, Size: 2147483647},
 		{Name: "source", Type: field.TypeEnum, Enums: []string{"oauth", "dm"}},

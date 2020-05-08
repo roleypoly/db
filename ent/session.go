@@ -16,10 +16,10 @@ type Session struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID int `json:"id,omitempty"`
-	// CreatedAt holds the value of the "created_at" field.
-	CreatedAt time.Time `json:"created_at,omitempty"`
-	// UpdatedAt holds the value of the "updated_at" field.
-	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// CreateTime holds the value of the "create_time" field.
+	CreateTime time.Time `json:"create_time,omitempty"`
+	// UpdateTime holds the value of the "update_time" field.
+	UpdateTime time.Time `json:"update_time,omitempty"`
 	// SessionID holds the value of the "session_id" field.
 	SessionID string `json:"session_id,omitempty"`
 	// UserID holds the value of the "user_id" field.
@@ -34,8 +34,8 @@ type Session struct {
 func (*Session) scanValues() []interface{} {
 	return []interface{}{
 		&sql.NullInt64{},  // id
-		&sql.NullTime{},   // created_at
-		&sql.NullTime{},   // updated_at
+		&sql.NullTime{},   // create_time
+		&sql.NullTime{},   // update_time
 		&sql.NullString{}, // session_id
 		&sql.NullString{}, // user_id
 		&sql.NullString{}, // source
@@ -56,14 +56,14 @@ func (s *Session) assignValues(values ...interface{}) error {
 	s.ID = int(value.Int64)
 	values = values[1:]
 	if value, ok := values[0].(*sql.NullTime); !ok {
-		return fmt.Errorf("unexpected type %T for field created_at", values[0])
+		return fmt.Errorf("unexpected type %T for field create_time", values[0])
 	} else if value.Valid {
-		s.CreatedAt = value.Time
+		s.CreateTime = value.Time
 	}
 	if value, ok := values[1].(*sql.NullTime); !ok {
-		return fmt.Errorf("unexpected type %T for field updated_at", values[1])
+		return fmt.Errorf("unexpected type %T for field update_time", values[1])
 	} else if value.Valid {
-		s.UpdatedAt = value.Time
+		s.UpdateTime = value.Time
 	}
 	if value, ok := values[2].(*sql.NullString); !ok {
 		return fmt.Errorf("unexpected type %T for field session_id", values[2])
@@ -111,10 +111,10 @@ func (s *Session) String() string {
 	var builder strings.Builder
 	builder.WriteString("Session(")
 	builder.WriteString(fmt.Sprintf("id=%v", s.ID))
-	builder.WriteString(", created_at=")
-	builder.WriteString(s.CreatedAt.Format(time.ANSIC))
-	builder.WriteString(", updated_at=")
-	builder.WriteString(s.UpdatedAt.Format(time.ANSIC))
+	builder.WriteString(", create_time=")
+	builder.WriteString(s.CreateTime.Format(time.ANSIC))
+	builder.WriteString(", update_time=")
+	builder.WriteString(s.UpdateTime.Format(time.ANSIC))
 	builder.WriteString(", session_id=")
 	builder.WriteString(s.SessionID)
 	builder.WriteString(", user_id=")

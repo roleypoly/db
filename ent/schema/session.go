@@ -5,7 +5,7 @@ import (
 
 	"github.com/facebookincubator/ent"
 	"github.com/facebookincubator/ent/schema/field"
-	"github.com/roleypoly/db/ent/mixin"
+	"github.com/facebookincubator/ent/schema/mixin"
 )
 
 // Session holds the schema definition for the Session entity.
@@ -42,6 +42,6 @@ func (Session) Edges() []ent.Edge {
 // Mixin of the Session.
 func (Session) Mixin() []ent.Mixin {
 	return []ent.Mixin{
-		mixin.TimeMixin{},
+		mixin.Time{},
 	}
 }

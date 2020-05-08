@@ -20,30 +20,30 @@ type ChallengeCreate struct {
 	hooks    []Hook
 }
 
-// SetCreatedAt sets the created_at field.
-func (cc *ChallengeCreate) SetCreatedAt(t time.Time) *ChallengeCreate {
-	cc.mutation.SetCreatedAt(t)
+// SetCreateTime sets the create_time field.
+func (cc *ChallengeCreate) SetCreateTime(t time.Time) *ChallengeCreate {
+	cc.mutation.SetCreateTime(t)
 	return cc
 }
 
-// SetNillableCreatedAt sets the created_at field if the given value is not nil.
-func (cc *ChallengeCreate) SetNillableCreatedAt(t *time.Time) *ChallengeCreate {
+// SetNillableCreateTime sets the create_time field if the given value is not nil.
+func (cc *ChallengeCreate) SetNillableCreateTime(t *time.Time) *ChallengeCreate {
 	if t != nil {
-		cc.SetCreatedAt(*t)
+		cc.SetCreateTime(*t)
 	}
 	return cc
 }
 
-// SetUpdatedAt sets the updated_at field.
-func (cc *ChallengeCreate) SetUpdatedAt(t time.Time) *ChallengeCreate {
-	cc.mutation.SetUpdatedAt(t)
+// SetUpdateTime sets the update_time field.
+func (cc *ChallengeCreate) SetUpdateTime(t time.Time) *ChallengeCreate {
+	cc.mutation.SetUpdateTime(t)
 	return cc
 }
 
-// SetNillableUpdatedAt sets the updated_at field if the given value is not nil.
-func (cc *ChallengeCreate) SetNillableUpdatedAt(t *time.Time) *ChallengeCreate {
+// SetNillableUpdateTime sets the update_time field if the given value is not nil.
+func (cc *ChallengeCreate) SetNillableUpdateTime(t *time.Time) *ChallengeCreate {
 	if t != nil {
-		cc.SetUpdatedAt(*t)
+		cc.SetUpdateTime(*t)
 	}
 	return cc
 }
@@ -88,13 +88,13 @@ func (cc *ChallengeCreate) SetNillableExpiresAt(t *time.Time) *ChallengeCreate {
 
 // Save creates the Challenge in the database.
 func (cc *ChallengeCreate) Save(ctx context.Context) (*Challenge, error) {
-	if _, ok := cc.mutation.CreatedAt(); !ok {
-		v := challenge.DefaultCreatedAt()
-		cc.mutation.SetCreatedAt(v)
+	if _, ok := cc.mutation.CreateTime(); !ok {
+		v := challenge.DefaultCreateTime()
+		cc.mutation.SetCreateTime(v)
 	}
-	if _, ok := cc.mutation.UpdatedAt(); !ok {
-		v := challenge.DefaultUpdatedAt()
-		cc.mutation.SetUpdatedAt(v)
+	if _, ok := cc.mutation.UpdateTime(); !ok {
+		v := challenge.DefaultUpdateTime()
+		cc.mutation.SetUpdateTime(v)
 	}
 	if _, ok := cc.mutation.ChallengeID(); !ok {
 		return nil, errors.New("ent: missing required field \"challenge_id\"")
@@ -158,21 +158,21 @@ func (cc *ChallengeCreate) sqlSave(ctx context.Context) (*Challenge, error) {
 			},
 		}
 	)
-	if value, ok := cc.mutation.CreatedAt(); ok {
+	if value, ok := cc.mutation.CreateTime(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
 			Value:  value,
-			Column: challenge.FieldCreatedAt,
+			Column: challenge.FieldCreateTime,
 		})
-		c.CreatedAt = value
+		c.CreateTime = value
 	}
-	if value, ok := cc.mutation.UpdatedAt(); ok {
+	if value, ok := cc.mutation.UpdateTime(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
 			Value:  value,
-			Column: challenge.FieldUpdatedAt,
+			Column: challenge.FieldUpdateTime,
 		})
-		c.UpdatedAt = value
+		c.UpdateTime = value
 	}
 	if value, ok := cc.mutation.ChallengeID(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{

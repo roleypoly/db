@@ -35,8 +35,8 @@ type ChallengeMutation struct {
 	op            Op
 	typ           string
 	id            *int
-	created_at    *time.Time
-	updated_at    *time.Time
+	create_time   *time.Time
+	update_time   *time.Time
 	challenge_id  *string
 	user_id       *string
 	human         *string
@@ -85,42 +85,42 @@ func (m *ChallengeMutation) ID() (id int, exists bool) {
 	return *m.id, true
 }
 
-// SetCreatedAt sets the created_at field.
-func (m *ChallengeMutation) SetCreatedAt(t time.Time) {
-	m.created_at = &t
+// SetCreateTime sets the create_time field.
+func (m *ChallengeMutation) SetCreateTime(t time.Time) {
+	m.create_time = &t
 }
 
-// CreatedAt returns the created_at value in the mutation.
-func (m *ChallengeMutation) CreatedAt() (r time.Time, exists bool) {
-	v := m.created_at
+// CreateTime returns the create_time value in the mutation.
+func (m *ChallengeMutation) CreateTime() (r time.Time, exists bool) {
+	v := m.create_time
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// ResetCreatedAt reset all changes of the created_at field.
-func (m *ChallengeMutation) ResetCreatedAt() {
-	m.created_at = nil
+// ResetCreateTime reset all changes of the create_time field.
+func (m *ChallengeMutation) ResetCreateTime() {
+	m.create_time = nil
 }
 
-// SetUpdatedAt sets the updated_at field.
-func (m *ChallengeMutation) SetUpdatedAt(t time.Time) {
-	m.updated_at = &t
+// SetUpdateTime sets the update_time field.
+func (m *ChallengeMutation) SetUpdateTime(t time.Time) {
+	m.update_time = &t
 }
 
-// UpdatedAt returns the updated_at value in the mutation.
-func (m *ChallengeMutation) UpdatedAt() (r time.Time, exists bool) {
-	v := m.updated_at
+// UpdateTime returns the update_time value in the mutation.
+func (m *ChallengeMutation) UpdateTime() (r time.Time, exists bool) {
+	v := m.update_time
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// ResetUpdatedAt reset all changes of the updated_at field.
-func (m *ChallengeMutation) ResetUpdatedAt() {
-	m.updated_at = nil
+// ResetUpdateTime reset all changes of the update_time field.
+func (m *ChallengeMutation) ResetUpdateTime() {
+	m.update_time = nil
 }
 
 // SetChallengeID sets the challenge_id field.
@@ -233,11 +233,11 @@ func (m *ChallengeMutation) Type() string {
 // fields that were in/decremented, call AddedFields().
 func (m *ChallengeMutation) Fields() []string {
 	fields := make([]string, 0, 7)
-	if m.created_at != nil {
-		fields = append(fields, challenge.FieldCreatedAt)
+	if m.create_time != nil {
+		fields = append(fields, challenge.FieldCreateTime)
 	}
-	if m.updated_at != nil {
-		fields = append(fields, challenge.FieldUpdatedAt)
+	if m.update_time != nil {
+		fields = append(fields, challenge.FieldUpdateTime)
 	}
 	if m.challenge_id != nil {
 		fields = append(fields, challenge.FieldChallengeID)
@@ -262,10 +262,10 @@ func (m *ChallengeMutation) Fields() []string {
 // not set, or was not define in the schema.
 func (m *ChallengeMutation) Field(name string) (ent.Value, bool) {
 	switch name {
-	case challenge.FieldCreatedAt:
-		return m.CreatedAt()
-	case challenge.FieldUpdatedAt:
-		return m.UpdatedAt()
+	case challenge.FieldCreateTime:
+		return m.CreateTime()
+	case challenge.FieldUpdateTime:
+		return m.UpdateTime()
 	case challenge.FieldChallengeID:
 		return m.ChallengeID()
 	case challenge.FieldUserID:
@@ -285,19 +285,19 @@ func (m *ChallengeMutation) Field(name string) (ent.Value, bool) {
 // type mismatch the field type.
 func (m *ChallengeMutation) SetField(name string, value ent.Value) error {
 	switch name {
-	case challenge.FieldCreatedAt:
+	case challenge.FieldCreateTime:
 		v, ok := value.(time.Time)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetCreatedAt(v)
+		m.SetCreateTime(v)
 		return nil
-	case challenge.FieldUpdatedAt:
+	case challenge.FieldUpdateTime:
 		v, ok := value.(time.Time)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetUpdatedAt(v)
+		m.SetUpdateTime(v)
 		return nil
 	case challenge.FieldChallengeID:
 		v, ok := value.(string)
@@ -384,11 +384,11 @@ func (m *ChallengeMutation) ClearField(name string) error {
 // defined in the schema.
 func (m *ChallengeMutation) ResetField(name string) error {
 	switch name {
-	case challenge.FieldCreatedAt:
-		m.ResetCreatedAt()
+	case challenge.FieldCreateTime:
+		m.ResetCreateTime()
 		return nil
-	case challenge.FieldUpdatedAt:
-		m.ResetUpdatedAt()
+	case challenge.FieldUpdateTime:
+		m.ResetUpdateTime()
 		return nil
 	case challenge.FieldChallengeID:
 		m.ResetChallengeID()
@@ -476,8 +476,8 @@ type GuildMutation struct {
 	op            Op
 	typ           string
 	id            *int
-	created_at    *time.Time
-	updated_at    *time.Time
+	create_time   *time.Time
+	update_time   *time.Time
 	snowflake     *string
 	message       *string
 	categories    *[]schema.Category
@@ -525,42 +525,42 @@ func (m *GuildMutation) ID() (id int, exists bool) {
 	return *m.id, true
 }
 
-// SetCreatedAt sets the created_at field.
-func (m *GuildMutation) SetCreatedAt(t time.Time) {
-	m.created_at = &t
+// SetCreateTime sets the create_time field.
+func (m *GuildMutation) SetCreateTime(t time.Time) {
+	m.create_time = &t
 }
 
-// CreatedAt returns the created_at value in the mutation.
-func (m *GuildMutation) CreatedAt() (r time.Time, exists bool) {
-	v := m.created_at
+// CreateTime returns the create_time value in the mutation.
+func (m *GuildMutation) CreateTime() (r time.Time, exists bool) {
+	v := m.create_time
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// ResetCreatedAt reset all changes of the created_at field.
-func (m *GuildMutation) ResetCreatedAt() {
-	m.created_at = nil
+// ResetCreateTime reset all changes of the create_time field.
+func (m *GuildMutation) ResetCreateTime() {
+	m.create_time = nil
 }
 
-// SetUpdatedAt sets the updated_at field.
-func (m *GuildMutation) SetUpdatedAt(t time.Time) {
-	m.updated_at = &t
+// SetUpdateTime sets the update_time field.
+func (m *GuildMutation) SetUpdateTime(t time.Time) {
+	m.update_time = &t
 }
 
-// UpdatedAt returns the updated_at value in the mutation.
-func (m *GuildMutation) UpdatedAt() (r time.Time, exists bool) {
-	v := m.updated_at
+// UpdateTime returns the update_time value in the mutation.
+func (m *GuildMutation) UpdateTime() (r time.Time, exists bool) {
+	v := m.update_time
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// ResetUpdatedAt reset all changes of the updated_at field.
-func (m *GuildMutation) ResetUpdatedAt() {
-	m.updated_at = nil
+// ResetUpdateTime reset all changes of the update_time field.
+func (m *GuildMutation) ResetUpdateTime() {
+	m.update_time = nil
 }
 
 // SetSnowflake sets the snowflake field.
@@ -654,11 +654,11 @@ func (m *GuildMutation) Type() string {
 // fields that were in/decremented, call AddedFields().
 func (m *GuildMutation) Fields() []string {
 	fields := make([]string, 0, 6)
-	if m.created_at != nil {
-		fields = append(fields, guild.FieldCreatedAt)
+	if m.create_time != nil {
+		fields = append(fields, guild.FieldCreateTime)
 	}
-	if m.updated_at != nil {
-		fields = append(fields, guild.FieldUpdatedAt)
+	if m.update_time != nil {
+		fields = append(fields, guild.FieldUpdateTime)
 	}
 	if m.snowflake != nil {
 		fields = append(fields, guild.FieldSnowflake)
@@ -680,10 +680,10 @@ func (m *GuildMutation) Fields() []string {
 // not set, or was not define in the schema.
 func (m *GuildMutation) Field(name string) (ent.Value, bool) {
 	switch name {
-	case guild.FieldCreatedAt:
-		return m.CreatedAt()
-	case guild.FieldUpdatedAt:
-		return m.UpdatedAt()
+	case guild.FieldCreateTime:
+		return m.CreateTime()
+	case guild.FieldUpdateTime:
+		return m.UpdateTime()
 	case guild.FieldSnowflake:
 		return m.Snowflake()
 	case guild.FieldMessage:
@@ -701,19 +701,19 @@ func (m *GuildMutation) Field(name string) (ent.Value, bool) {
 // type mismatch the field type.
 func (m *GuildMutation) SetField(name string, value ent.Value) error {
 	switch name {
-	case guild.FieldCreatedAt:
+	case guild.FieldCreateTime:
 		v, ok := value.(time.Time)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetCreatedAt(v)
+		m.SetCreateTime(v)
 		return nil
-	case guild.FieldUpdatedAt:
+	case guild.FieldUpdateTime:
 		v, ok := value.(time.Time)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetUpdatedAt(v)
+		m.SetUpdateTime(v)
 		return nil
 	case guild.FieldSnowflake:
 		v, ok := value.(string)
@@ -793,11 +793,11 @@ func (m *GuildMutation) ClearField(name string) error {
 // defined in the schema.
 func (m *GuildMutation) ResetField(name string) error {
 	switch name {
-	case guild.FieldCreatedAt:
-		m.ResetCreatedAt()
+	case guild.FieldCreateTime:
+		m.ResetCreateTime()
 		return nil
-	case guild.FieldUpdatedAt:
-		m.ResetUpdatedAt()
+	case guild.FieldUpdateTime:
+		m.ResetUpdateTime()
 		return nil
 	case guild.FieldSnowflake:
 		m.ResetSnowflake()
@@ -882,8 +882,8 @@ type SessionMutation struct {
 	op            Op
 	typ           string
 	id            *int
-	created_at    *time.Time
-	updated_at    *time.Time
+	create_time   *time.Time
+	update_time   *time.Time
 	session_id    *string
 	user_id       *string
 	source        *session.Source
@@ -931,42 +931,42 @@ func (m *SessionMutation) ID() (id int, exists bool) {
 	return *m.id, true
 }
 
-// SetCreatedAt sets the created_at field.
-func (m *SessionMutation) SetCreatedAt(t time.Time) {
-	m.created_at = &t
+// SetCreateTime sets the create_time field.
+func (m *SessionMutation) SetCreateTime(t time.Time) {
+	m.create_time = &t
 }
 
-// CreatedAt returns the created_at value in the mutation.
-func (m *SessionMutation) CreatedAt() (r time.Time, exists bool) {
-	v := m.created_at
+// CreateTime returns the create_time value in the mutation.
+func (m *SessionMutation) CreateTime() (r time.Time, exists bool) {
+	v := m.create_time
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// ResetCreatedAt reset all changes of the created_at field.
-func (m *SessionMutation) ResetCreatedAt() {
-	m.created_at = nil
+// ResetCreateTime reset all changes of the create_time field.
+func (m *SessionMutation) ResetCreateTime() {
+	m.create_time = nil
 }
 
-// SetUpdatedAt sets the updated_at field.
-func (m *SessionMutation) SetUpdatedAt(t time.Time) {
-	m.updated_at = &t
+// SetUpdateTime sets the update_time field.
+func (m *SessionMutation) SetUpdateTime(t time.Time) {
+	m.update_time = &t
 }
 
-// UpdatedAt returns the updated_at value in the mutation.
-func (m *SessionMutation) UpdatedAt() (r time.Time, exists bool) {
-	v := m.updated_at
+// UpdateTime returns the update_time value in the mutation.
+func (m *SessionMutation) UpdateTime() (r time.Time, exists bool) {
+	v := m.update_time
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// ResetUpdatedAt reset all changes of the updated_at field.
-func (m *SessionMutation) ResetUpdatedAt() {
-	m.updated_at = nil
+// ResetUpdateTime reset all changes of the update_time field.
+func (m *SessionMutation) ResetUpdateTime() {
+	m.update_time = nil
 }
 
 // SetSessionID sets the session_id field.
@@ -1060,11 +1060,11 @@ func (m *SessionMutation) Type() string {
 // fields that were in/decremented, call AddedFields().
 func (m *SessionMutation) Fields() []string {
 	fields := make([]string, 0, 6)
-	if m.created_at != nil {
-		fields = append(fields, session.FieldCreatedAt)
+	if m.create_time != nil {
+		fields = append(fields, session.FieldCreateTime)
 	}
-	if m.updated_at != nil {
-		fields = append(fields, session.FieldUpdatedAt)
+	if m.update_time != nil {
+		fields = append(fields, session.FieldUpdateTime)
 	}
 	if m.session_id != nil {
 		fields = append(fields, session.FieldSessionID)
@@ -1086,10 +1086,10 @@ func (m *SessionMutation) Fields() []string {
 // not set, or was not define in the schema.
 func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 	switch name {
-	case session.FieldCreatedAt:
-		return m.CreatedAt()
-	case session.FieldUpdatedAt:
-		return m.UpdatedAt()
+	case session.FieldCreateTime:
+		return m.CreateTime()
+	case session.FieldUpdateTime:
+		return m.UpdateTime()
 	case session.FieldSessionID:
 		return m.SessionID()
 	case session.FieldUserID:
@@ -1107,19 +1107,19 @@ func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 // type mismatch the field type.
 func (m *SessionMutation) SetField(name string, value ent.Value) error {
 	switch name {
-	case session.FieldCreatedAt:
+	case session.FieldCreateTime:
 		v, ok := value.(time.Time)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetCreatedAt(v)
+		m.SetCreateTime(v)
 		return nil
-	case session.FieldUpdatedAt:
+	case session.FieldUpdateTime:
 		v, ok := value.(time.Time)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetUpdatedAt(v)
+		m.SetUpdateTime(v)
 		return nil
 	case session.FieldSessionID:
 		v, ok := value.(string)
@@ -1199,11 +1199,11 @@ func (m *SessionMutation) ClearField(name string) error {
 // defined in the schema.
 func (m *SessionMutation) ResetField(name string) error {
 	switch name {
-	case session.FieldCreatedAt:
-		m.ResetCreatedAt()
+	case session.FieldCreateTime:
+		m.ResetCreateTime()
 		return nil
-	case session.FieldUpdatedAt:
-		m.ResetUpdatedAt()
+	case session.FieldUpdateTime:
+		m.ResetUpdateTime()
 		return nil
 	case session.FieldSessionID:
 		m.ResetSessionID()

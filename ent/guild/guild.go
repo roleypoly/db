@@ -10,12 +10,12 @@ const (
 	// Label holds the string label denoting the guild type in the database.
 	Label = "guild"
 	// FieldID holds the string denoting the id field in the database.
-	FieldID           = "id"         // FieldCreatedAt holds the string denoting the created_at vertex property in the database.
-	FieldCreatedAt    = "created_at" // FieldUpdatedAt holds the string denoting the updated_at vertex property in the database.
-	FieldUpdatedAt    = "updated_at" // FieldSnowflake holds the string denoting the snowflake vertex property in the database.
-	FieldSnowflake    = "snowflake"  // FieldMessage holds the string denoting the message vertex property in the database.
-	FieldMessage      = "message"    // FieldCategories holds the string denoting the categories vertex property in the database.
-	FieldCategories   = "categories" // FieldEntitlements holds the string denoting the entitlements vertex property in the database.
+	FieldID           = "id"          // FieldCreateTime holds the string denoting the create_time vertex property in the database.
+	FieldCreateTime   = "create_time" // FieldUpdateTime holds the string denoting the update_time vertex property in the database.
+	FieldUpdateTime   = "update_time" // FieldSnowflake holds the string denoting the snowflake vertex property in the database.
+	FieldSnowflake    = "snowflake"   // FieldMessage holds the string denoting the message vertex property in the database.
+	FieldMessage      = "message"     // FieldCategories holds the string denoting the categories vertex property in the database.
+	FieldCategories   = "categories"  // FieldEntitlements holds the string denoting the entitlements vertex property in the database.
 	FieldEntitlements = "entitlements"
 
 	// Table holds the table name of the guild in the database.
@@ -25,8 +25,8 @@ const (
 // Columns holds all SQL columns for guild fields.
 var Columns = []string{
 	FieldID,
-	FieldCreatedAt,
-	FieldUpdatedAt,
+	FieldCreateTime,
+	FieldUpdateTime,
 	FieldSnowflake,
 	FieldMessage,
 	FieldCategories,
@@ -34,10 +34,10 @@ var Columns = []string{
 }
 
 var (
-	// DefaultCreatedAt holds the default value on creation for the created_at field.
-	DefaultCreatedAt func() time.Time
-	// DefaultUpdatedAt holds the default value on creation for the updated_at field.
-	DefaultUpdatedAt func() time.Time
-	// UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
-	UpdateDefaultUpdatedAt func() time.Time
+	// DefaultCreateTime holds the default value on creation for the create_time field.
+	DefaultCreateTime func() time.Time
+	// DefaultUpdateTime holds the default value on creation for the update_time field.
+	DefaultUpdateTime func() time.Time
+	// UpdateDefaultUpdateTime holds the default value on update for the update_time field.
+	UpdateDefaultUpdateTime func() time.Time
 )

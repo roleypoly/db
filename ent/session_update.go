@@ -5,7 +5,6 @@ package ent
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/facebookincubator/ent/dialect/sql"
 	"github.com/facebookincubator/ent/dialect/sql/sqlgraph"
@@ -28,17 +27,11 @@ func (su *SessionUpdate) Where(ps ...predicate.Session) *SessionUpdate {
 	return su
 }
 
-// SetUpdatedAt sets the updated_at field.
-func (su *SessionUpdate) SetUpdatedAt(t time.Time) *SessionUpdate {
-	su.mutation.SetUpdatedAt(t)
-	return su
-}
-
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (su *SessionUpdate) Save(ctx context.Context) (int, error) {
-	if _, ok := su.mutation.UpdatedAt(); !ok {
-		v := session.UpdateDefaultUpdatedAt()
-		su.mutation.SetUpdatedAt(v)
+	if _, ok := su.mutation.UpdateTime(); !ok {
+		v := session.UpdateDefaultUpdateTime()
+		su.mutation.SetUpdateTime(v)
 	}
 	var (
 		err      error
@@ -106,11 +99,11 @@ func (su *SessionUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			}
 		}
 	}
-	if value, ok := su.mutation.UpdatedAt(); ok {
+	if value, ok := su.mutation.UpdateTime(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
 			Value:  value,
-			Column: session.FieldUpdatedAt,
+			Column: session.FieldUpdateTime,
 		})
 	}
 	if n, err = sqlgraph.UpdateNodes(ctx, su.driver, _spec); err != nil {
@@ -131,17 +124,11 @@ type SessionUpdateOne struct {
 	mutation *SessionMutation
 }
 
-// SetUpdatedAt sets the updated_at field.
-func (suo *SessionUpdateOne) SetUpdatedAt(t time.Time) *SessionUpdateOne {
-	suo.mutation.SetUpdatedAt(t)
-	return suo
-}
-
 // Save executes the query and returns the updated entity.
 func (suo *SessionUpdateOne) Save(ctx context.Context) (*Session, error) {
-	if _, ok := suo.mutation.UpdatedAt(); !ok {
-		v := session.UpdateDefaultUpdatedAt()
-		suo.mutation.SetUpdatedAt(v)
+	if _, ok := suo.mutation.UpdateTime(); !ok {
+		v := session.UpdateDefaultUpdateTime()
+		suo.mutation.SetUpdateTime(v)
 	}
 	var (
 		err  error
@@ -207,11 +194,11 @@ func (suo *SessionUpdateOne) sqlSave(ctx context.Context) (s *Session, err error
 		return nil, fmt.Errorf("missing Session.ID for update")
 	}
 	_spec.Node.ID.Value = id
-	if value, ok := suo.mutation.UpdatedAt(); ok {
+	if value, ok := suo.mutation.UpdateTime(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
 			Value:  value,
-			Column: session.FieldUpdatedAt,
+			Column: session.FieldUpdateTime,
 		})
 	}
 	s = &Session{config: suo.config}

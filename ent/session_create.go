@@ -20,30 +20,30 @@ type SessionCreate struct {
 	hooks    []Hook
 }
 
-// SetCreatedAt sets the created_at field.
-func (sc *SessionCreate) SetCreatedAt(t time.Time) *SessionCreate {
-	sc.mutation.SetCreatedAt(t)
+// SetCreateTime sets the create_time field.
+func (sc *SessionCreate) SetCreateTime(t time.Time) *SessionCreate {
+	sc.mutation.SetCreateTime(t)
 	return sc
 }
 
-// SetNillableCreatedAt sets the created_at field if the given value is not nil.
-func (sc *SessionCreate) SetNillableCreatedAt(t *time.Time) *SessionCreate {
+// SetNillableCreateTime sets the create_time field if the given value is not nil.
+func (sc *SessionCreate) SetNillableCreateTime(t *time.Time) *SessionCreate {
 	if t != nil {
-		sc.SetCreatedAt(*t)
+		sc.SetCreateTime(*t)
 	}
 	return sc
 }
 
-// SetUpdatedAt sets the updated_at field.
-func (sc *SessionCreate) SetUpdatedAt(t time.Time) *SessionCreate {
-	sc.mutation.SetUpdatedAt(t)
+// SetUpdateTime sets the update_time field.
+func (sc *SessionCreate) SetUpdateTime(t time.Time) *SessionCreate {
+	sc.mutation.SetUpdateTime(t)
 	return sc
 }
 
-// SetNillableUpdatedAt sets the updated_at field if the given value is not nil.
-func (sc *SessionCreate) SetNillableUpdatedAt(t *time.Time) *SessionCreate {
+// SetNillableUpdateTime sets the update_time field if the given value is not nil.
+func (sc *SessionCreate) SetNillableUpdateTime(t *time.Time) *SessionCreate {
 	if t != nil {
-		sc.SetUpdatedAt(*t)
+		sc.SetUpdateTime(*t)
 	}
 	return sc
 }
@@ -82,13 +82,13 @@ func (sc *SessionCreate) SetNillableExpiresAt(t *time.Time) *SessionCreate {
 
 // Save creates the Session in the database.
 func (sc *SessionCreate) Save(ctx context.Context) (*Session, error) {
-	if _, ok := sc.mutation.CreatedAt(); !ok {
-		v := session.DefaultCreatedAt()
-		sc.mutation.SetCreatedAt(v)
+	if _, ok := sc.mutation.CreateTime(); !ok {
+		v := session.DefaultCreateTime()
+		sc.mutation.SetCreateTime(v)
 	}
-	if _, ok := sc.mutation.UpdatedAt(); !ok {
-		v := session.DefaultUpdatedAt()
-		sc.mutation.SetUpdatedAt(v)
+	if _, ok := sc.mutation.UpdateTime(); !ok {
+		v := session.DefaultUpdateTime()
+		sc.mutation.SetUpdateTime(v)
 	}
 	if _, ok := sc.mutation.SessionID(); !ok {
 		return nil, errors.New("ent: missing required field \"session_id\"")
@@ -154,21 +154,21 @@ func (sc *SessionCreate) sqlSave(ctx context.Context) (*Session, error) {
 			},
 		}
 	)
-	if value, ok := sc.mutation.CreatedAt(); ok {
+	if value, ok := sc.mutation.CreateTime(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
 			Value:  value,
-			Column: session.FieldCreatedAt,
+			Column: session.FieldCreateTime,
 		})
-		s.CreatedAt = value
+		s.CreateTime = value
 	}
-	if value, ok := sc.mutation.UpdatedAt(); ok {
+	if value, ok := sc.mutation.UpdateTime(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
 			Value:  value,
-			Column: session.FieldUpdatedAt,
+			Column: session.FieldUpdateTime,
 		})
-		s.UpdatedAt = value
+		s.UpdateTime = value
 	}
 	if value, ok := sc.mutation.SessionID(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
