@@ -72,7 +72,7 @@ func runImport(newDB *ent.Client, oldDB *sql.DB) {
 		guild.SetMessage(data.Message).
 			SetSnowflake(data.ID).
 			SetCategories(fromCategories(data.Categories)).
-			SetCreatedAt(data.CreatedAt)
+			SetCreateTime(data.CreatedAt)
 
 		ctx := ent.NewContext(context.Background(), newDB)
 		guild.SaveX(ctx)

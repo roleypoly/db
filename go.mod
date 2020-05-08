@@ -1,12 +1,10 @@
 module github.com/roleypoly/db
 
-go 1.13
+go 1.14
 
 require (
 	github.com/facebookincubator/ent v0.2.1
-	github.com/hashicorp/golang-lru v0.5.1 // indirect
-	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.5.2
-	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
-	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
+	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 )
