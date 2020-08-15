@@ -143,7 +143,7 @@ func CreateTimeIn(vs ...time.Time) predicate.Guild {
 	return predicate.Guild(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -160,7 +160,7 @@ func CreateTimeNotIn(vs ...time.Time) predicate.Guild {
 	return predicate.Guild(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -219,7 +219,7 @@ func UpdateTimeIn(vs ...time.Time) predicate.Guild {
 	return predicate.Guild(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -236,7 +236,7 @@ func UpdateTimeNotIn(vs ...time.Time) predicate.Guild {
 	return predicate.Guild(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -295,7 +295,7 @@ func SnowflakeIn(vs ...string) predicate.Guild {
 	return predicate.Guild(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -312,7 +312,7 @@ func SnowflakeNotIn(vs ...string) predicate.Guild {
 	return predicate.Guild(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -406,7 +406,7 @@ func MessageIn(vs ...string) predicate.Guild {
 	return predicate.Guild(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -423,7 +423,7 @@ func MessageNotIn(vs ...string) predicate.Guild {
 	return predicate.Guild(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}

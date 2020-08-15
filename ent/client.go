@@ -46,8 +46,8 @@ func (c *Client) init() {
 	c.Session = NewSessionClient(c.config)
 }
 
-// Open opens a connection to the database specified by the driver name and a
-// driver-specific data source name, and returns a new client attached to it.
+// Open opens a database/sql.DB specified by the driver name and
+// the data source name, and returns a new client attached to it.
 // Optional parameters can be added for configuring the client.
 func Open(driverName, dataSourceName string, options ...Option) (*Client, error) {
 	switch driverName {
@@ -62,7 +62,8 @@ func Open(driverName, dataSourceName string, options ...Option) (*Client, error)
 	}
 }
 
-// Tx returns a new transactional client.
+// Tx returns a new transactional client. The provided context
+// is used until the transaction is committed or rolled back.
 func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	if _, ok := c.driver.(*txDriver); ok {
 		return nil, fmt.Errorf("ent: cannot start a transaction within a transaction")
@@ -73,6 +74,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	}
 	cfg := config{driver: tx, log: c.log, debug: c.debug, hooks: c.hooks}
 	return &Tx{
+		ctx:       ctx,
 		config:    cfg,
 		Challenge: NewChallengeClient(cfg),
 		Guild:     NewGuildClient(cfg),
@@ -150,6 +152,11 @@ func (c *ChallengeClient) Create() *ChallengeCreate {
 	return &ChallengeCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
+// BulkCreate returns a builder for creating a bulk of Challenge entities.
+func (c *ChallengeClient) CreateBulk(builders ...*ChallengeCreate) *ChallengeCreateBulk {
+	return &ChallengeCreateBulk{config: c.config, builders: builders}
+}
+
 // Update returns an update builder for Challenge.
 func (c *ChallengeClient) Update() *ChallengeUpdate {
 	mutation := newChallengeMutation(c.config, OpUpdate)
@@ -158,13 +165,13 @@ func (c *ChallengeClient) Update() *ChallengeUpdate {
 
 // UpdateOne returns an update builder for the given entity.
 func (c *ChallengeClient) UpdateOne(ch *Challenge) *ChallengeUpdateOne {
-	return c.UpdateOneID(ch.ID)
+	mutation := newChallengeMutation(c.config, OpUpdateOne, withChallenge(ch))
+	return &ChallengeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *ChallengeClient) UpdateOneID(id int) *ChallengeUpdateOne {
-	mutation := newChallengeMutation(c.config, OpUpdateOne)
-	mutation.id = &id
+	mutation := newChallengeMutation(c.config, OpUpdateOne, withChallengeID(id))
 	return &ChallengeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -187,7 +194,7 @@ func (c *ChallengeClient) DeleteOneID(id int) *ChallengeDeleteOne {
 	return &ChallengeDeleteOne{builder}
 }
 
-// Create returns a query builder for Challenge.
+// Query returns a query builder for Challenge.
 func (c *ChallengeClient) Query() *ChallengeQuery {
 	return &ChallengeQuery{config: c.config}
 }
@@ -233,6 +240,11 @@ func (c *GuildClient) Create() *GuildCreate {
 	return &GuildCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
+// BulkCreate returns a builder for creating a bulk of Guild entities.
+func (c *GuildClient) CreateBulk(builders ...*GuildCreate) *GuildCreateBulk {
+	return &GuildCreateBulk{config: c.config, builders: builders}
+}
+
 // Update returns an update builder for Guild.
 func (c *GuildClient) Update() *GuildUpdate {
 	mutation := newGuildMutation(c.config, OpUpdate)
@@ -241,13 +253,13 @@ func (c *GuildClient) Update() *GuildUpdate {
 
 // UpdateOne returns an update builder for the given entity.
 func (c *GuildClient) UpdateOne(gu *Guild) *GuildUpdateOne {
-	return c.UpdateOneID(gu.ID)
+	mutation := newGuildMutation(c.config, OpUpdateOne, withGuild(gu))
+	return &GuildUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *GuildClient) UpdateOneID(id int) *GuildUpdateOne {
-	mutation := newGuildMutation(c.config, OpUpdateOne)
-	mutation.id = &id
+	mutation := newGuildMutation(c.config, OpUpdateOne, withGuildID(id))
 	return &GuildUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -270,7 +282,7 @@ func (c *GuildClient) DeleteOneID(id int) *GuildDeleteOne {
 	return &GuildDeleteOne{builder}
 }
 
-// Create returns a query builder for Guild.
+// Query returns a query builder for Guild.
 func (c *GuildClient) Query() *GuildQuery {
 	return &GuildQuery{config: c.config}
 }
@@ -316,6 +328,11 @@ func (c *SessionClient) Create() *SessionCreate {
 	return &SessionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
+// BulkCreate returns a builder for creating a bulk of Session entities.
+func (c *SessionClient) CreateBulk(builders ...*SessionCreate) *SessionCreateBulk {
+	return &SessionCreateBulk{config: c.config, builders: builders}
+}
+
 // Update returns an update builder for Session.
 func (c *SessionClient) Update() *SessionUpdate {
 	mutation := newSessionMutation(c.config, OpUpdate)
@@ -324,13 +341,13 @@ func (c *SessionClient) Update() *SessionUpdate {
 
 // UpdateOne returns an update builder for the given entity.
 func (c *SessionClient) UpdateOne(s *Session) *SessionUpdateOne {
-	return c.UpdateOneID(s.ID)
+	mutation := newSessionMutation(c.config, OpUpdateOne, withSession(s))
+	return &SessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
 func (c *SessionClient) UpdateOneID(id int) *SessionUpdateOne {
-	mutation := newSessionMutation(c.config, OpUpdateOne)
-	mutation.id = &id
+	mutation := newSessionMutation(c.config, OpUpdateOne, withSessionID(id))
 	return &SessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -353,7 +370,7 @@ func (c *SessionClient) DeleteOneID(id int) *SessionDeleteOne {
 	return &SessionDeleteOne{builder}
 }
 
-// Create returns a query builder for Session.
+// Query returns a query builder for Session.
 func (c *SessionClient) Query() *SessionQuery {
 	return &SessionQuery{config: c.config}
 }

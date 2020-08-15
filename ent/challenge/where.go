@@ -164,7 +164,7 @@ func CreateTimeIn(vs ...time.Time) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -181,7 +181,7 @@ func CreateTimeNotIn(vs ...time.Time) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -240,7 +240,7 @@ func UpdateTimeIn(vs ...time.Time) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -257,7 +257,7 @@ func UpdateTimeNotIn(vs ...time.Time) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -316,7 +316,7 @@ func ChallengeIDIn(vs ...string) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -333,7 +333,7 @@ func ChallengeIDNotIn(vs ...string) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -427,7 +427,7 @@ func UserIDIn(vs ...string) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -444,7 +444,7 @@ func UserIDNotIn(vs ...string) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -538,7 +538,7 @@ func HumanIn(vs ...string) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -555,7 +555,7 @@ func HumanNotIn(vs ...string) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -649,7 +649,7 @@ func MagicIn(vs ...string) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -666,7 +666,7 @@ func MagicNotIn(vs ...string) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -760,7 +760,7 @@ func ExpiresAtIn(vs ...time.Time) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}
@@ -777,7 +777,7 @@ func ExpiresAtNotIn(vs ...time.Time) predicate.Challenge {
 	return predicate.Challenge(func(s *sql.Selector) {
 		// if not arguments were provided, append the FALSE constants,
 		// since we can't apply "IN ()". This will make this predicate falsy.
-		if len(vs) == 0 {
+		if len(v) == 0 {
 			s.Where(sql.False())
 			return
 		}

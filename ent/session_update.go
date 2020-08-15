@@ -27,6 +27,11 @@ func (su *SessionUpdate) Where(ps ...predicate.Session) *SessionUpdate {
 	return su
 }
 
+// Mutation returns the SessionMutation object of the builder.
+func (su *SessionUpdate) Mutation() *SessionMutation {
+	return su.mutation
+}
+
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (su *SessionUpdate) Save(ctx context.Context) (int, error) {
 	if _, ok := su.mutation.UpdateTime(); !ok {
@@ -47,6 +52,7 @@ func (su *SessionUpdate) Save(ctx context.Context) (int, error) {
 			}
 			su.mutation = mutation
 			affected, err = su.sqlSave(ctx)
+			mutation.done = true
 			return affected, err
 		})
 		for i := len(su.hooks) - 1; i >= 0; i-- {
@@ -124,6 +130,11 @@ type SessionUpdateOne struct {
 	mutation *SessionMutation
 }
 
+// Mutation returns the SessionMutation object of the builder.
+func (suo *SessionUpdateOne) Mutation() *SessionMutation {
+	return suo.mutation
+}
+
 // Save executes the query and returns the updated entity.
 func (suo *SessionUpdateOne) Save(ctx context.Context) (*Session, error) {
 	if _, ok := suo.mutation.UpdateTime(); !ok {
@@ -144,6 +155,7 @@ func (suo *SessionUpdateOne) Save(ctx context.Context) (*Session, error) {
 			}
 			suo.mutation = mutation
 			node, err = suo.sqlSave(ctx)
+			mutation.done = true
 			return node, err
 		})
 		for i := len(suo.hooks) - 1; i >= 0; i-- {
@@ -191,7 +203,7 @@ func (suo *SessionUpdateOne) sqlSave(ctx context.Context) (s *Session, err error
 	}
 	id, ok := suo.mutation.ID()
 	if !ok {
-		return nil, fmt.Errorf("missing Session.ID for update")
+		return nil, &ValidationError{Name: "ID", err: fmt.Errorf("missing Session.ID for update")}
 	}
 	_spec.Node.ID.Value = id
 	if value, ok := suo.mutation.UpdateTime(); ok {

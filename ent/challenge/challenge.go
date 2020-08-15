@@ -10,14 +10,21 @@ const (
 	// Label holds the string label denoting the challenge type in the database.
 	Label = "challenge"
 	// FieldID holds the string denoting the id field in the database.
-	FieldID          = "id"           // FieldCreateTime holds the string denoting the create_time vertex property in the database.
-	FieldCreateTime  = "create_time"  // FieldUpdateTime holds the string denoting the update_time vertex property in the database.
-	FieldUpdateTime  = "update_time"  // FieldChallengeID holds the string denoting the challenge_id vertex property in the database.
-	FieldChallengeID = "challenge_id" // FieldUserID holds the string denoting the user_id vertex property in the database.
-	FieldUserID      = "user_id"      // FieldHuman holds the string denoting the human vertex property in the database.
-	FieldHuman       = "human"        // FieldMagic holds the string denoting the magic vertex property in the database.
-	FieldMagic       = "magic"        // FieldExpiresAt holds the string denoting the expires_at vertex property in the database.
-	FieldExpiresAt   = "expires_at"
+	FieldID = "id"
+	// FieldCreateTime holds the string denoting the create_time field in the database.
+	FieldCreateTime = "create_time"
+	// FieldUpdateTime holds the string denoting the update_time field in the database.
+	FieldUpdateTime = "update_time"
+	// FieldChallengeID holds the string denoting the challenge_id field in the database.
+	FieldChallengeID = "challenge_id"
+	// FieldUserID holds the string denoting the user_id field in the database.
+	FieldUserID = "user_id"
+	// FieldHuman holds the string denoting the human field in the database.
+	FieldHuman = "human"
+	// FieldMagic holds the string denoting the magic field in the database.
+	FieldMagic = "magic"
+	// FieldExpiresAt holds the string denoting the expires_at field in the database.
+	FieldExpiresAt = "expires_at"
 
 	// Table holds the table name of the challenge in the database.
 	Table = "challenges"

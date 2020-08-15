@@ -50,7 +50,7 @@ var (
 		{Name: "update_time", Type: field.TypeTime},
 		{Name: "session_id", Type: field.TypeString, Unique: true, Size: 2147483647},
 		{Name: "user_id", Type: field.TypeString, Unique: true, Size: 2147483647},
-		{Name: "source", Type: field.TypeEnum, Enums: []string{"oauth", "dm"}},
+		{Name: "source", Type: field.TypeEnum, Enums: []string{"dm", "oauth"}},
 		{Name: "expires_at", Type: field.TypeTime},
 	}
 	// SessionsTable holds the schema information for the "sessions" table.

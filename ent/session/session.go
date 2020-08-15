@@ -11,13 +11,19 @@ const (
 	// Label holds the string label denoting the session type in the database.
 	Label = "session"
 	// FieldID holds the string denoting the id field in the database.
-	FieldID         = "id"          // FieldCreateTime holds the string denoting the create_time vertex property in the database.
-	FieldCreateTime = "create_time" // FieldUpdateTime holds the string denoting the update_time vertex property in the database.
-	FieldUpdateTime = "update_time" // FieldSessionID holds the string denoting the session_id vertex property in the database.
-	FieldSessionID  = "session_id"  // FieldUserID holds the string denoting the user_id vertex property in the database.
-	FieldUserID     = "user_id"     // FieldSource holds the string denoting the source vertex property in the database.
-	FieldSource     = "source"      // FieldExpiresAt holds the string denoting the expires_at vertex property in the database.
-	FieldExpiresAt  = "expires_at"
+	FieldID = "id"
+	// FieldCreateTime holds the string denoting the create_time field in the database.
+	FieldCreateTime = "create_time"
+	// FieldUpdateTime holds the string denoting the update_time field in the database.
+	FieldUpdateTime = "update_time"
+	// FieldSessionID holds the string denoting the session_id field in the database.
+	FieldSessionID = "session_id"
+	// FieldUserID holds the string denoting the user_id field in the database.
+	FieldUserID = "user_id"
+	// FieldSource holds the string denoting the source field in the database.
+	FieldSource = "source"
+	// FieldExpiresAt holds the string denoting the expires_at field in the database.
+	FieldExpiresAt = "expires_at"
 
 	// Table holds the table name of the session in the database.
 	Table = "sessions"
@@ -50,18 +56,18 @@ type Source string
 
 // Source values.
 const (
-	SourceOauth Source = "oauth"
 	SourceDm    Source = "dm"
+	SourceOauth Source = "oauth"
 )
 
 func (s Source) String() string {
 	return string(s)
 }
 
-// SourceValidator is a validator for the "s" field enum values. It is called by the builders before save.
+// SourceValidator is a validator for the "source" field enum values. It is called by the builders before save.
 func SourceValidator(s Source) error {
 	switch s {
-	case SourceOauth, SourceDm:
+	case SourceDm, SourceOauth:
 		return nil
 	default:
 		return fmt.Errorf("session: invalid enum value for source field: %q", s)

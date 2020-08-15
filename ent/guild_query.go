@@ -20,7 +20,7 @@ type GuildQuery struct {
 	config
 	limit      *int
 	offset     *int
-	order      []Order
+	order      []OrderFunc
 	unique     []string
 	predicates []predicate.Guild
 	// intermediate query (i.e. traversal path).
@@ -47,7 +47,7 @@ func (gq *GuildQuery) Offset(offset int) *GuildQuery {
 }
 
 // Order adds an order step to the query.
-func (gq *GuildQuery) Order(o ...Order) *GuildQuery {
+func (gq *GuildQuery) Order(o ...OrderFunc) *GuildQuery {
 	gq.order = append(gq.order, o...)
 	return gq
 }
@@ -137,8 +137,8 @@ func (gq *GuildQuery) OnlyID(ctx context.Context) (id int, err error) {
 	return
 }
 
-// OnlyXID is like OnlyID, but panics if an error occurs.
-func (gq *GuildQuery) OnlyXID(ctx context.Context) int {
+// OnlyIDX is like OnlyID, but panics if an error occurs.
+func (gq *GuildQuery) OnlyIDX(ctx context.Context) int {
 	id, err := gq.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -222,7 +222,7 @@ func (gq *GuildQuery) Clone() *GuildQuery {
 		config:     gq.config,
 		limit:      gq.limit,
 		offset:     gq.offset,
-		order:      append([]Order{}, gq.order...),
+		order:      append([]OrderFunc{}, gq.order...),
 		unique:     append([]string{}, gq.unique...),
 		predicates: append([]predicate.Guild{}, gq.predicates...),
 		// clone intermediate query.
@@ -398,14 +398,14 @@ func (gq *GuildQuery) sqlQuery() *sql.Selector {
 type GuildGroupBy struct {
 	config
 	fields []string
-	fns    []Aggregate
+	fns    []AggregateFunc
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
 }
 
 // Aggregate adds the given aggregation functions to the group-by query.
-func (ggb *GuildGroupBy) Aggregate(fns ...Aggregate) *GuildGroupBy {
+func (ggb *GuildGroupBy) Aggregate(fns ...AggregateFunc) *GuildGroupBy {
 	ggb.fns = append(ggb.fns, fns...)
 	return ggb
 }
@@ -448,6 +448,32 @@ func (ggb *GuildGroupBy) StringsX(ctx context.Context) []string {
 	return v
 }
 
+// String returns a single string from group-by. It is only allowed when querying group-by with one field.
+func (ggb *GuildGroupBy) String(ctx context.Context) (_ string, err error) {
+	var v []string
+	if v, err = ggb.Strings(ctx); err != nil {
+		return
+	}
+	switch len(v) {
+	case 1:
+		return v[0], nil
+	case 0:
+		err = &NotFoundError{guild.Label}
+	default:
+		err = fmt.Errorf("ent: GuildGroupBy.Strings returned %d results when one was expected", len(v))
+	}
+	return
+}
+
+// StringX is like String, but panics if an error occurs.
+func (ggb *GuildGroupBy) StringX(ctx context.Context) string {
+	v, err := ggb.String(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 // Ints returns list of ints from group-by. It is only allowed when querying group-by with one field.
 func (ggb *GuildGroupBy) Ints(ctx context.Context) ([]int, error) {
 	if len(ggb.fields) > 1 {
@@ -463,6 +489,32 @@ func (ggb *GuildGroupBy) Ints(ctx context.Context) ([]int, error) {
 // IntsX is like Ints, but panics if an error occurs.
 func (ggb *GuildGroupBy) IntsX(ctx context.Context) []int {
 	v, err := ggb.Ints(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+// Int returns a single int from group-by. It is only allowed when querying group-by with one field.
+func (ggb *GuildGroupBy) Int(ctx context.Context) (_ int, err error) {
+	var v []int
+	if v, err = ggb.Ints(ctx); err != nil {
+		return
+	}
+	switch len(v) {
+	case 1:
+		return v[0], nil
+	case 0:
+		err = &NotFoundError{guild.Label}
+	default:
+		err = fmt.Errorf("ent: GuildGroupBy.Ints returned %d results when one was expected", len(v))
+	}
+	return
+}
+
+// IntX is like Int, but panics if an error occurs.
+func (ggb *GuildGroupBy) IntX(ctx context.Context) int {
+	v, err := ggb.Int(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -490,6 +542,32 @@ func (ggb *GuildGroupBy) Float64sX(ctx context.Context) []float64 {
 	return v
 }
 
+// Float64 returns a single float64 from group-by. It is only allowed when querying group-by with one field.
+func (ggb *GuildGroupBy) Float64(ctx context.Context) (_ float64, err error) {
+	var v []float64
+	if v, err = ggb.Float64s(ctx); err != nil {
+		return
+	}
+	switch len(v) {
+	case 1:
+		return v[0], nil
+	case 0:
+		err = &NotFoundError{guild.Label}
+	default:
+		err = fmt.Errorf("ent: GuildGroupBy.Float64s returned %d results when one was expected", len(v))
+	}
+	return
+}
+
+// Float64X is like Float64, but panics if an error occurs.
+func (ggb *GuildGroupBy) Float64X(ctx context.Context) float64 {
+	v, err := ggb.Float64(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 // Bools returns list of bools from group-by. It is only allowed when querying group-by with one field.
 func (ggb *GuildGroupBy) Bools(ctx context.Context) ([]bool, error) {
 	if len(ggb.fields) > 1 {
@@ -505,6 +583,32 @@ func (ggb *GuildGroupBy) Bools(ctx context.Context) ([]bool, error) {
 // BoolsX is like Bools, but panics if an error occurs.
 func (ggb *GuildGroupBy) BoolsX(ctx context.Context) []bool {
 	v, err := ggb.Bools(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+// Bool returns a single bool from group-by. It is only allowed when querying group-by with one field.
+func (ggb *GuildGroupBy) Bool(ctx context.Context) (_ bool, err error) {
+	var v []bool
+	if v, err = ggb.Bools(ctx); err != nil {
+		return
+	}
+	switch len(v) {
+	case 1:
+		return v[0], nil
+	case 0:
+		err = &NotFoundError{guild.Label}
+	default:
+		err = fmt.Errorf("ent: GuildGroupBy.Bools returned %d results when one was expected", len(v))
+	}
+	return
+}
+
+// BoolX is like Bool, but panics if an error occurs.
+func (ggb *GuildGroupBy) BoolX(ctx context.Context) bool {
+	v, err := ggb.Bool(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -578,6 +682,32 @@ func (gs *GuildSelect) StringsX(ctx context.Context) []string {
 	return v
 }
 
+// String returns a single string from selector. It is only allowed when selecting one field.
+func (gs *GuildSelect) String(ctx context.Context) (_ string, err error) {
+	var v []string
+	if v, err = gs.Strings(ctx); err != nil {
+		return
+	}
+	switch len(v) {
+	case 1:
+		return v[0], nil
+	case 0:
+		err = &NotFoundError{guild.Label}
+	default:
+		err = fmt.Errorf("ent: GuildSelect.Strings returned %d results when one was expected", len(v))
+	}
+	return
+}
+
+// StringX is like String, but panics if an error occurs.
+func (gs *GuildSelect) StringX(ctx context.Context) string {
+	v, err := gs.String(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 // Ints returns list of ints from selector. It is only allowed when selecting one field.
 func (gs *GuildSelect) Ints(ctx context.Context) ([]int, error) {
 	if len(gs.fields) > 1 {
@@ -593,6 +723,32 @@ func (gs *GuildSelect) Ints(ctx context.Context) ([]int, error) {
 // IntsX is like Ints, but panics if an error occurs.
 func (gs *GuildSelect) IntsX(ctx context.Context) []int {
 	v, err := gs.Ints(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+// Int returns a single int from selector. It is only allowed when selecting one field.
+func (gs *GuildSelect) Int(ctx context.Context) (_ int, err error) {
+	var v []int
+	if v, err = gs.Ints(ctx); err != nil {
+		return
+	}
+	switch len(v) {
+	case 1:
+		return v[0], nil
+	case 0:
+		err = &NotFoundError{guild.Label}
+	default:
+		err = fmt.Errorf("ent: GuildSelect.Ints returned %d results when one was expected", len(v))
+	}
+	return
+}
+
+// IntX is like Int, but panics if an error occurs.
+func (gs *GuildSelect) IntX(ctx context.Context) int {
+	v, err := gs.Int(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -620,6 +776,32 @@ func (gs *GuildSelect) Float64sX(ctx context.Context) []float64 {
 	return v
 }
 
+// Float64 returns a single float64 from selector. It is only allowed when selecting one field.
+func (gs *GuildSelect) Float64(ctx context.Context) (_ float64, err error) {
+	var v []float64
+	if v, err = gs.Float64s(ctx); err != nil {
+		return
+	}
+	switch len(v) {
+	case 1:
+		return v[0], nil
+	case 0:
+		err = &NotFoundError{guild.Label}
+	default:
+		err = fmt.Errorf("ent: GuildSelect.Float64s returned %d results when one was expected", len(v))
+	}
+	return
+}
+
+// Float64X is like Float64, but panics if an error occurs.
+func (gs *GuildSelect) Float64X(ctx context.Context) float64 {
+	v, err := gs.Float64(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 // Bools returns list of bools from selector. It is only allowed when selecting one field.
 func (gs *GuildSelect) Bools(ctx context.Context) ([]bool, error) {
 	if len(gs.fields) > 1 {
@@ -635,6 +817,32 @@ func (gs *GuildSelect) Bools(ctx context.Context) ([]bool, error) {
 // BoolsX is like Bools, but panics if an error occurs.
 func (gs *GuildSelect) BoolsX(ctx context.Context) []bool {
 	v, err := gs.Bools(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+// Bool returns a single bool from selector. It is only allowed when selecting one field.
+func (gs *GuildSelect) Bool(ctx context.Context) (_ bool, err error) {
+	var v []bool
+	if v, err = gs.Bools(ctx); err != nil {
+		return
+	}
+	switch len(v) {
+	case 1:
+		return v[0], nil
+	case 0:
+		err = &NotFoundError{guild.Label}
+	default:
+		err = fmt.Errorf("ent: GuildSelect.Bools returned %d results when one was expected", len(v))
+	}
+	return
+}
+
+// BoolX is like Bool, but panics if an error occurs.
+func (gs *GuildSelect) BoolX(ctx context.Context) bool {
+	v, err := gs.Bool(ctx)
 	if err != nil {
 		panic(err)
 	}

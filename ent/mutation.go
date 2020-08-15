@@ -3,7 +3,9 @@
 package ent
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/roleypoly/db/ent/challenge"
@@ -43,17 +45,58 @@ type ChallengeMutation struct {
 	magic         *string
 	expires_at    *time.Time
 	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*Challenge, error)
 }
 
 var _ ent.Mutation = (*ChallengeMutation)(nil)
 
+// challengeOption allows to manage the mutation configuration using functional options.
+type challengeOption func(*ChallengeMutation)
+
 // newChallengeMutation creates new mutation for $n.Name.
-func newChallengeMutation(c config, op Op) *ChallengeMutation {
-	return &ChallengeMutation{
+func newChallengeMutation(c config, op Op, opts ...challengeOption) *ChallengeMutation {
+	m := &ChallengeMutation{
 		config:        c,
 		op:            op,
 		typ:           TypeChallenge,
 		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withChallengeID sets the id field of the mutation.
+func withChallengeID(id int) challengeOption {
+	return func(m *ChallengeMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Challenge
+		)
+		m.oldValue = func(ctx context.Context) (*Challenge, error) {
+			once.Do(func() {
+				if m.done {
+					err = fmt.Errorf("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Challenge.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withChallenge sets the old Challenge of the mutation.
+func withChallenge(node *Challenge) challengeOption {
+	return func(m *ChallengeMutation) {
+		m.oldValue = func(context.Context) (*Challenge, error) {
+			return node, nil
+		}
+		m.id = &node.ID
 	}
 }
 
@@ -99,7 +142,25 @@ func (m *ChallengeMutation) CreateTime() (r time.Time, exists bool) {
 	return *v, true
 }
 
-// ResetCreateTime reset all changes of the create_time field.
+// OldCreateTime returns the old create_time value of the Challenge.
+// If the Challenge object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *ChallengeMutation) OldCreateTime(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldCreateTime is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldCreateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreateTime: %w", err)
+	}
+	return oldValue.CreateTime, nil
+}
+
+// ResetCreateTime reset all changes of the "create_time" field.
 func (m *ChallengeMutation) ResetCreateTime() {
 	m.create_time = nil
 }
@@ -118,7 +179,25 @@ func (m *ChallengeMutation) UpdateTime() (r time.Time, exists bool) {
 	return *v, true
 }
 
-// ResetUpdateTime reset all changes of the update_time field.
+// OldUpdateTime returns the old update_time value of the Challenge.
+// If the Challenge object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *ChallengeMutation) OldUpdateTime(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldUpdateTime is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldUpdateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdateTime: %w", err)
+	}
+	return oldValue.UpdateTime, nil
+}
+
+// ResetUpdateTime reset all changes of the "update_time" field.
 func (m *ChallengeMutation) ResetUpdateTime() {
 	m.update_time = nil
 }
@@ -137,7 +216,25 @@ func (m *ChallengeMutation) ChallengeID() (r string, exists bool) {
 	return *v, true
 }
 
-// ResetChallengeID reset all changes of the challenge_id field.
+// OldChallengeID returns the old challenge_id value of the Challenge.
+// If the Challenge object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *ChallengeMutation) OldChallengeID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldChallengeID is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldChallengeID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldChallengeID: %w", err)
+	}
+	return oldValue.ChallengeID, nil
+}
+
+// ResetChallengeID reset all changes of the "challenge_id" field.
 func (m *ChallengeMutation) ResetChallengeID() {
 	m.challenge_id = nil
 }
@@ -156,7 +253,25 @@ func (m *ChallengeMutation) UserID() (r string, exists bool) {
 	return *v, true
 }
 
-// ResetUserID reset all changes of the user_id field.
+// OldUserID returns the old user_id value of the Challenge.
+// If the Challenge object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *ChallengeMutation) OldUserID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldUserID is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID reset all changes of the "user_id" field.
 func (m *ChallengeMutation) ResetUserID() {
 	m.user_id = nil
 }
@@ -175,7 +290,25 @@ func (m *ChallengeMutation) Human() (r string, exists bool) {
 	return *v, true
 }
 
-// ResetHuman reset all changes of the human field.
+// OldHuman returns the old human value of the Challenge.
+// If the Challenge object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *ChallengeMutation) OldHuman(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldHuman is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldHuman requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHuman: %w", err)
+	}
+	return oldValue.Human, nil
+}
+
+// ResetHuman reset all changes of the "human" field.
 func (m *ChallengeMutation) ResetHuman() {
 	m.human = nil
 }
@@ -194,7 +327,25 @@ func (m *ChallengeMutation) Magic() (r string, exists bool) {
 	return *v, true
 }
 
-// ResetMagic reset all changes of the magic field.
+// OldMagic returns the old magic value of the Challenge.
+// If the Challenge object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *ChallengeMutation) OldMagic(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldMagic is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldMagic requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMagic: %w", err)
+	}
+	return oldValue.Magic, nil
+}
+
+// ResetMagic reset all changes of the "magic" field.
 func (m *ChallengeMutation) ResetMagic() {
 	m.magic = nil
 }
@@ -213,7 +364,25 @@ func (m *ChallengeMutation) ExpiresAt() (r time.Time, exists bool) {
 	return *v, true
 }
 
-// ResetExpiresAt reset all changes of the expires_at field.
+// OldExpiresAt returns the old expires_at value of the Challenge.
+// If the Challenge object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *ChallengeMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldExpiresAt is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt reset all changes of the "expires_at" field.
 func (m *ChallengeMutation) ResetExpiresAt() {
 	m.expires_at = nil
 }
@@ -278,6 +447,29 @@ func (m *ChallengeMutation) Field(name string) (ent.Value, bool) {
 		return m.ExpiresAt()
 	}
 	return nil, false
+}
+
+// OldField returns the old value of the field from the database.
+// An error is returned if the mutation operation is not UpdateOne,
+// or the query to the database was failed.
+func (m *ChallengeMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case challenge.FieldCreateTime:
+		return m.OldCreateTime(ctx)
+	case challenge.FieldUpdateTime:
+		return m.OldUpdateTime(ctx)
+	case challenge.FieldChallengeID:
+		return m.OldChallengeID(ctx)
+	case challenge.FieldUserID:
+		return m.OldUserID(ctx)
+	case challenge.FieldHuman:
+		return m.OldHuman(ctx)
+	case challenge.FieldMagic:
+		return m.OldMagic(ctx)
+	case challenge.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Challenge field %s", name)
 }
 
 // SetField sets the value for the given name. It returns an
@@ -419,8 +611,6 @@ func (m *ChallengeMutation) AddedEdges() []string {
 // AddedIDs returns all ids (to other nodes) that were added for
 // the given edge name.
 func (m *ChallengeMutation) AddedIDs(name string) []ent.Value {
-	switch name {
-	}
 	return nil
 }
 
@@ -434,8 +624,6 @@ func (m *ChallengeMutation) RemovedEdges() []string {
 // RemovedIDs returns all ids (to other nodes) that were removed for
 // the given edge name.
 func (m *ChallengeMutation) RemovedIDs(name string) []ent.Value {
-	switch name {
-	}
 	return nil
 }
 
@@ -449,8 +637,6 @@ func (m *ChallengeMutation) ClearedEdges() []string {
 // EdgeCleared returns a boolean indicates if this edge was
 // cleared in this mutation.
 func (m *ChallengeMutation) EdgeCleared(name string) bool {
-	switch name {
-	}
 	return false
 }
 
@@ -464,8 +650,6 @@ func (m *ChallengeMutation) ClearEdge(name string) error {
 // given edge name. It returns an error if the edge is not
 // defined in the schema.
 func (m *ChallengeMutation) ResetEdge(name string) error {
-	switch name {
-	}
 	return fmt.Errorf("unknown Challenge edge %s", name)
 }
 
@@ -483,17 +667,58 @@ type GuildMutation struct {
 	categories    *[]schema.Category
 	entitlements  *[]string
 	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*Guild, error)
 }
 
 var _ ent.Mutation = (*GuildMutation)(nil)
 
+// guildOption allows to manage the mutation configuration using functional options.
+type guildOption func(*GuildMutation)
+
 // newGuildMutation creates new mutation for $n.Name.
-func newGuildMutation(c config, op Op) *GuildMutation {
-	return &GuildMutation{
+func newGuildMutation(c config, op Op, opts ...guildOption) *GuildMutation {
+	m := &GuildMutation{
 		config:        c,
 		op:            op,
 		typ:           TypeGuild,
 		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withGuildID sets the id field of the mutation.
+func withGuildID(id int) guildOption {
+	return func(m *GuildMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Guild
+		)
+		m.oldValue = func(ctx context.Context) (*Guild, error) {
+			once.Do(func() {
+				if m.done {
+					err = fmt.Errorf("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Guild.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withGuild sets the old Guild of the mutation.
+func withGuild(node *Guild) guildOption {
+	return func(m *GuildMutation) {
+		m.oldValue = func(context.Context) (*Guild, error) {
+			return node, nil
+		}
+		m.id = &node.ID
 	}
 }
 
@@ -539,7 +764,25 @@ func (m *GuildMutation) CreateTime() (r time.Time, exists bool) {
 	return *v, true
 }
 
-// ResetCreateTime reset all changes of the create_time field.
+// OldCreateTime returns the old create_time value of the Guild.
+// If the Guild object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *GuildMutation) OldCreateTime(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldCreateTime is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldCreateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreateTime: %w", err)
+	}
+	return oldValue.CreateTime, nil
+}
+
+// ResetCreateTime reset all changes of the "create_time" field.
 func (m *GuildMutation) ResetCreateTime() {
 	m.create_time = nil
 }
@@ -558,7 +801,25 @@ func (m *GuildMutation) UpdateTime() (r time.Time, exists bool) {
 	return *v, true
 }
 
-// ResetUpdateTime reset all changes of the update_time field.
+// OldUpdateTime returns the old update_time value of the Guild.
+// If the Guild object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *GuildMutation) OldUpdateTime(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldUpdateTime is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldUpdateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdateTime: %w", err)
+	}
+	return oldValue.UpdateTime, nil
+}
+
+// ResetUpdateTime reset all changes of the "update_time" field.
 func (m *GuildMutation) ResetUpdateTime() {
 	m.update_time = nil
 }
@@ -577,7 +838,25 @@ func (m *GuildMutation) Snowflake() (r string, exists bool) {
 	return *v, true
 }
 
-// ResetSnowflake reset all changes of the snowflake field.
+// OldSnowflake returns the old snowflake value of the Guild.
+// If the Guild object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *GuildMutation) OldSnowflake(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldSnowflake is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldSnowflake requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSnowflake: %w", err)
+	}
+	return oldValue.Snowflake, nil
+}
+
+// ResetSnowflake reset all changes of the "snowflake" field.
 func (m *GuildMutation) ResetSnowflake() {
 	m.snowflake = nil
 }
@@ -596,7 +875,25 @@ func (m *GuildMutation) Message() (r string, exists bool) {
 	return *v, true
 }
 
-// ResetMessage reset all changes of the message field.
+// OldMessage returns the old message value of the Guild.
+// If the Guild object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *GuildMutation) OldMessage(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldMessage is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldMessage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMessage: %w", err)
+	}
+	return oldValue.Message, nil
+}
+
+// ResetMessage reset all changes of the "message" field.
 func (m *GuildMutation) ResetMessage() {
 	m.message = nil
 }
@@ -615,7 +912,25 @@ func (m *GuildMutation) Categories() (r []schema.Category, exists bool) {
 	return *v, true
 }
 
-// ResetCategories reset all changes of the categories field.
+// OldCategories returns the old categories value of the Guild.
+// If the Guild object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *GuildMutation) OldCategories(ctx context.Context) (v []schema.Category, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldCategories is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldCategories requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCategories: %w", err)
+	}
+	return oldValue.Categories, nil
+}
+
+// ResetCategories reset all changes of the "categories" field.
 func (m *GuildMutation) ResetCategories() {
 	m.categories = nil
 }
@@ -634,7 +949,25 @@ func (m *GuildMutation) Entitlements() (r []string, exists bool) {
 	return *v, true
 }
 
-// ResetEntitlements reset all changes of the entitlements field.
+// OldEntitlements returns the old entitlements value of the Guild.
+// If the Guild object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *GuildMutation) OldEntitlements(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldEntitlements is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldEntitlements requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntitlements: %w", err)
+	}
+	return oldValue.Entitlements, nil
+}
+
+// ResetEntitlements reset all changes of the "entitlements" field.
 func (m *GuildMutation) ResetEntitlements() {
 	m.entitlements = nil
 }
@@ -694,6 +1027,27 @@ func (m *GuildMutation) Field(name string) (ent.Value, bool) {
 		return m.Entitlements()
 	}
 	return nil, false
+}
+
+// OldField returns the old value of the field from the database.
+// An error is returned if the mutation operation is not UpdateOne,
+// or the query to the database was failed.
+func (m *GuildMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case guild.FieldCreateTime:
+		return m.OldCreateTime(ctx)
+	case guild.FieldUpdateTime:
+		return m.OldUpdateTime(ctx)
+	case guild.FieldSnowflake:
+		return m.OldSnowflake(ctx)
+	case guild.FieldMessage:
+		return m.OldMessage(ctx)
+	case guild.FieldCategories:
+		return m.OldCategories(ctx)
+	case guild.FieldEntitlements:
+		return m.OldEntitlements(ctx)
+	}
+	return nil, fmt.Errorf("unknown Guild field %s", name)
 }
 
 // SetField sets the value for the given name. It returns an
@@ -825,8 +1179,6 @@ func (m *GuildMutation) AddedEdges() []string {
 // AddedIDs returns all ids (to other nodes) that were added for
 // the given edge name.
 func (m *GuildMutation) AddedIDs(name string) []ent.Value {
-	switch name {
-	}
 	return nil
 }
 
@@ -840,8 +1192,6 @@ func (m *GuildMutation) RemovedEdges() []string {
 // RemovedIDs returns all ids (to other nodes) that were removed for
 // the given edge name.
 func (m *GuildMutation) RemovedIDs(name string) []ent.Value {
-	switch name {
-	}
 	return nil
 }
 
@@ -855,8 +1205,6 @@ func (m *GuildMutation) ClearedEdges() []string {
 // EdgeCleared returns a boolean indicates if this edge was
 // cleared in this mutation.
 func (m *GuildMutation) EdgeCleared(name string) bool {
-	switch name {
-	}
 	return false
 }
 
@@ -870,8 +1218,6 @@ func (m *GuildMutation) ClearEdge(name string) error {
 // given edge name. It returns an error if the edge is not
 // defined in the schema.
 func (m *GuildMutation) ResetEdge(name string) error {
-	switch name {
-	}
 	return fmt.Errorf("unknown Guild edge %s", name)
 }
 
@@ -889,17 +1235,58 @@ type SessionMutation struct {
 	source        *session.Source
 	expires_at    *time.Time
 	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*Session, error)
 }
 
 var _ ent.Mutation = (*SessionMutation)(nil)
 
+// sessionOption allows to manage the mutation configuration using functional options.
+type sessionOption func(*SessionMutation)
+
 // newSessionMutation creates new mutation for $n.Name.
-func newSessionMutation(c config, op Op) *SessionMutation {
-	return &SessionMutation{
+func newSessionMutation(c config, op Op, opts ...sessionOption) *SessionMutation {
+	m := &SessionMutation{
 		config:        c,
 		op:            op,
 		typ:           TypeSession,
 		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSessionID sets the id field of the mutation.
+func withSessionID(id int) sessionOption {
+	return func(m *SessionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Session
+		)
+		m.oldValue = func(ctx context.Context) (*Session, error) {
+			once.Do(func() {
+				if m.done {
+					err = fmt.Errorf("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Session.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSession sets the old Session of the mutation.
+func withSession(node *Session) sessionOption {
+	return func(m *SessionMutation) {
+		m.oldValue = func(context.Context) (*Session, error) {
+			return node, nil
+		}
+		m.id = &node.ID
 	}
 }
 
@@ -945,7 +1332,25 @@ func (m *SessionMutation) CreateTime() (r time.Time, exists bool) {
 	return *v, true
 }
 
-// ResetCreateTime reset all changes of the create_time field.
+// OldCreateTime returns the old create_time value of the Session.
+// If the Session object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *SessionMutation) OldCreateTime(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldCreateTime is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldCreateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreateTime: %w", err)
+	}
+	return oldValue.CreateTime, nil
+}
+
+// ResetCreateTime reset all changes of the "create_time" field.
 func (m *SessionMutation) ResetCreateTime() {
 	m.create_time = nil
 }
@@ -964,7 +1369,25 @@ func (m *SessionMutation) UpdateTime() (r time.Time, exists bool) {
 	return *v, true
 }
 
-// ResetUpdateTime reset all changes of the update_time field.
+// OldUpdateTime returns the old update_time value of the Session.
+// If the Session object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *SessionMutation) OldUpdateTime(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldUpdateTime is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldUpdateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdateTime: %w", err)
+	}
+	return oldValue.UpdateTime, nil
+}
+
+// ResetUpdateTime reset all changes of the "update_time" field.
 func (m *SessionMutation) ResetUpdateTime() {
 	m.update_time = nil
 }
@@ -983,7 +1406,25 @@ func (m *SessionMutation) SessionID() (r string, exists bool) {
 	return *v, true
 }
 
-// ResetSessionID reset all changes of the session_id field.
+// OldSessionID returns the old session_id value of the Session.
+// If the Session object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *SessionMutation) OldSessionID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldSessionID is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSessionID: %w", err)
+	}
+	return oldValue.SessionID, nil
+}
+
+// ResetSessionID reset all changes of the "session_id" field.
 func (m *SessionMutation) ResetSessionID() {
 	m.session_id = nil
 }
@@ -1002,7 +1443,25 @@ func (m *SessionMutation) UserID() (r string, exists bool) {
 	return *v, true
 }
 
-// ResetUserID reset all changes of the user_id field.
+// OldUserID returns the old user_id value of the Session.
+// If the Session object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *SessionMutation) OldUserID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldUserID is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID reset all changes of the "user_id" field.
 func (m *SessionMutation) ResetUserID() {
 	m.user_id = nil
 }
@@ -1021,7 +1480,25 @@ func (m *SessionMutation) Source() (r session.Source, exists bool) {
 	return *v, true
 }
 
-// ResetSource reset all changes of the source field.
+// OldSource returns the old source value of the Session.
+// If the Session object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *SessionMutation) OldSource(ctx context.Context) (v session.Source, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldSource is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldSource requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSource: %w", err)
+	}
+	return oldValue.Source, nil
+}
+
+// ResetSource reset all changes of the "source" field.
 func (m *SessionMutation) ResetSource() {
 	m.source = nil
 }
@@ -1040,7 +1517,25 @@ func (m *SessionMutation) ExpiresAt() (r time.Time, exists bool) {
 	return *v, true
 }
 
-// ResetExpiresAt reset all changes of the expires_at field.
+// OldExpiresAt returns the old expires_at value of the Session.
+// If the Session object wasn't provided to the builder, the object is fetched
+// from the database.
+// An error is returned if the mutation operation is not UpdateOne, or database query fails.
+func (m *SessionMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, fmt.Errorf("OldExpiresAt is allowed only on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, fmt.Errorf("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt reset all changes of the "expires_at" field.
 func (m *SessionMutation) ResetExpiresAt() {
 	m.expires_at = nil
 }
@@ -1100,6 +1595,27 @@ func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 		return m.ExpiresAt()
 	}
 	return nil, false
+}
+
+// OldField returns the old value of the field from the database.
+// An error is returned if the mutation operation is not UpdateOne,
+// or the query to the database was failed.
+func (m *SessionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case session.FieldCreateTime:
+		return m.OldCreateTime(ctx)
+	case session.FieldUpdateTime:
+		return m.OldUpdateTime(ctx)
+	case session.FieldSessionID:
+		return m.OldSessionID(ctx)
+	case session.FieldUserID:
+		return m.OldUserID(ctx)
+	case session.FieldSource:
+		return m.OldSource(ctx)
+	case session.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Session field %s", name)
 }
 
 // SetField sets the value for the given name. It returns an
@@ -1231,8 +1747,6 @@ func (m *SessionMutation) AddedEdges() []string {
 // AddedIDs returns all ids (to other nodes) that were added for
 // the given edge name.
 func (m *SessionMutation) AddedIDs(name string) []ent.Value {
-	switch name {
-	}
 	return nil
 }
 
@@ -1246,8 +1760,6 @@ func (m *SessionMutation) RemovedEdges() []string {
 // RemovedIDs returns all ids (to other nodes) that were removed for
 // the given edge name.
 func (m *SessionMutation) RemovedIDs(name string) []ent.Value {
-	switch name {
-	}
 	return nil
 }
 
@@ -1261,8 +1773,6 @@ func (m *SessionMutation) ClearedEdges() []string {
 // EdgeCleared returns a boolean indicates if this edge was
 // cleared in this mutation.
 func (m *SessionMutation) EdgeCleared(name string) bool {
-	switch name {
-	}
 	return false
 }
 
@@ -1276,7 +1786,5 @@ func (m *SessionMutation) ClearEdge(name string) error {
 // given edge name. It returns an error if the edge is not
 // defined in the schema.
 func (m *SessionMutation) ResetEdge(name string) error {
-	switch name {
-	}
 	return fmt.Errorf("unknown Session edge %s", name)
 }

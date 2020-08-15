@@ -73,27 +73,15 @@ func (gc *GuildCreate) SetEntitlements(s []string) *GuildCreate {
 	return gc
 }
 
+// Mutation returns the GuildMutation object of the builder.
+func (gc *GuildCreate) Mutation() *GuildMutation {
+	return gc.mutation
+}
+
 // Save creates the Guild in the database.
 func (gc *GuildCreate) Save(ctx context.Context) (*Guild, error) {
-	if _, ok := gc.mutation.CreateTime(); !ok {
-		v := guild.DefaultCreateTime()
-		gc.mutation.SetCreateTime(v)
-	}
-	if _, ok := gc.mutation.UpdateTime(); !ok {
-		v := guild.DefaultUpdateTime()
-		gc.mutation.SetUpdateTime(v)
-	}
-	if _, ok := gc.mutation.Snowflake(); !ok {
-		return nil, errors.New("ent: missing required field \"snowflake\"")
-	}
-	if _, ok := gc.mutation.Message(); !ok {
-		return nil, errors.New("ent: missing required field \"message\"")
-	}
-	if _, ok := gc.mutation.Categories(); !ok {
-		return nil, errors.New("ent: missing required field \"categories\"")
-	}
-	if _, ok := gc.mutation.Entitlements(); !ok {
-		return nil, errors.New("ent: missing required field \"entitlements\"")
+	if err := gc.preSave(); err != nil {
+		return nil, err
 	}
 	var (
 		err  error
@@ -109,6 +97,7 @@ func (gc *GuildCreate) Save(ctx context.Context) (*Guild, error) {
 			}
 			gc.mutation = mutation
 			node, err = gc.sqlSave(ctx)
+			mutation.done = true
 			return node, err
 		})
 		for i := len(gc.hooks) - 1; i >= 0; i-- {
@@ -130,7 +119,44 @@ func (gc *GuildCreate) SaveX(ctx context.Context) *Guild {
 	return v
 }
 
+func (gc *GuildCreate) preSave() error {
+	if _, ok := gc.mutation.CreateTime(); !ok {
+		v := guild.DefaultCreateTime()
+		gc.mutation.SetCreateTime(v)
+	}
+	if _, ok := gc.mutation.UpdateTime(); !ok {
+		v := guild.DefaultUpdateTime()
+		gc.mutation.SetUpdateTime(v)
+	}
+	if _, ok := gc.mutation.Snowflake(); !ok {
+		return &ValidationError{Name: "snowflake", err: errors.New("ent: missing required field \"snowflake\"")}
+	}
+	if _, ok := gc.mutation.Message(); !ok {
+		return &ValidationError{Name: "message", err: errors.New("ent: missing required field \"message\"")}
+	}
+	if _, ok := gc.mutation.Categories(); !ok {
+		return &ValidationError{Name: "categories", err: errors.New("ent: missing required field \"categories\"")}
+	}
+	if _, ok := gc.mutation.Entitlements(); !ok {
+		return &ValidationError{Name: "entitlements", err: errors.New("ent: missing required field \"entitlements\"")}
+	}
+	return nil
+}
+
 func (gc *GuildCreate) sqlSave(ctx context.Context) (*Guild, error) {
+	gu, _spec := gc.createSpec()
+	if err := sqlgraph.CreateNode(ctx, gc.driver, _spec); err != nil {
+		if cerr, ok := isSQLConstraintError(err); ok {
+			err = cerr
+		}
+		return nil, err
+	}
+	id := _spec.ID.Value.(int64)
+	gu.ID = int(id)
+	return gu, nil
+}
+
+func (gc *GuildCreate) createSpec() (*Guild, *sqlgraph.CreateSpec) {
 	var (
 		gu    = &Guild{config: gc.config}
 		_spec = &sqlgraph.CreateSpec{
@@ -189,13 +215,71 @@ func (gc *GuildCreate) sqlSave(ctx context.Context) (*Guild, error) {
 		})
 		gu.Entitlements = value
 	}
-	if err := sqlgraph.CreateNode(ctx, gc.driver, _spec); err != nil {
-		if cerr, ok := isSQLConstraintError(err); ok {
-			err = cerr
-		}
-		return nil, err
+	return gu, _spec
+}
+
+// GuildCreateBulk is the builder for creating a bulk of Guild entities.
+type GuildCreateBulk struct {
+	config
+	builders []*GuildCreate
+}
+
+// Save creates the Guild entities in the database.
+func (gcb *GuildCreateBulk) Save(ctx context.Context) ([]*Guild, error) {
+	specs := make([]*sqlgraph.CreateSpec, len(gcb.builders))
+	nodes := make([]*Guild, len(gcb.builders))
+	mutators := make([]Mutator, len(gcb.builders))
+	for i := range gcb.builders {
+		func(i int, root context.Context) {
+			builder := gcb.builders[i]
+			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+				if err := builder.preSave(); err != nil {
+					return nil, err
+				}
+				mutation, ok := m.(*GuildMutation)
+				if !ok {
+					return nil, fmt.Errorf("unexpected mutation type %T", m)
+				}
+				builder.mutation = mutation
+				nodes[i], specs[i] = builder.createSpec()
+				var err error
+				if i < len(mutators)-1 {
+					_, err = mutators[i+1].Mutate(root, gcb.builders[i+1].mutation)
+				} else {
+					// Invoke the actual operation on the latest mutation in the chain.
+					if err = sqlgraph.BatchCreate(ctx, gcb.driver, &sqlgraph.BatchCreateSpec{Nodes: specs}); err != nil {
+						if cerr, ok := isSQLConstraintError(err); ok {
+							err = cerr
+						}
+					}
+				}
+				mutation.done = true
+				if err != nil {
+					return nil, err
+				}
+				id := specs[i].ID.Value.(int64)
+				nodes[i].ID = int(id)
+				return nodes[i], nil
+			})
+			for i := len(builder.hooks) - 1; i >= 0; i-- {
+				mut = builder.hooks[i](mut)
+			}
+			mutators[i] = mut
+		}(i, ctx)
 	}
-	id := _spec.ID.Value.(int64)
-	gu.ID = int(id)
-	return gu, nil
+	if len(mutators) > 0 {
+		if _, err := mutators[0].Mutate(ctx, gcb.builders[0].mutation); err != nil {
+			return nil, err
+		}
+	}
+	return nodes, nil
+}
+
+// SaveX calls Save and panics if Save returns an error.
+func (gcb *GuildCreateBulk) SaveX(ctx context.Context) []*Guild {
+	v, err := gcb.Save(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }

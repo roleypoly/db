@@ -46,6 +46,11 @@ func (gu *GuildUpdate) SetEntitlements(s []string) *GuildUpdate {
 	return gu
 }
 
+// Mutation returns the GuildMutation object of the builder.
+func (gu *GuildUpdate) Mutation() *GuildMutation {
+	return gu.mutation
+}
+
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (gu *GuildUpdate) Save(ctx context.Context) (int, error) {
 	if _, ok := gu.mutation.UpdateTime(); !ok {
@@ -66,6 +71,7 @@ func (gu *GuildUpdate) Save(ctx context.Context) (int, error) {
 			}
 			gu.mutation = mutation
 			affected, err = gu.sqlSave(ctx)
+			mutation.done = true
 			return affected, err
 		})
 		for i := len(gu.hooks) - 1; i >= 0; i-- {
@@ -182,6 +188,11 @@ func (guo *GuildUpdateOne) SetEntitlements(s []string) *GuildUpdateOne {
 	return guo
 }
 
+// Mutation returns the GuildMutation object of the builder.
+func (guo *GuildUpdateOne) Mutation() *GuildMutation {
+	return guo.mutation
+}
+
 // Save executes the query and returns the updated entity.
 func (guo *GuildUpdateOne) Save(ctx context.Context) (*Guild, error) {
 	if _, ok := guo.mutation.UpdateTime(); !ok {
@@ -202,6 +213,7 @@ func (guo *GuildUpdateOne) Save(ctx context.Context) (*Guild, error) {
 			}
 			guo.mutation = mutation
 			node, err = guo.sqlSave(ctx)
+			mutation.done = true
 			return node, err
 		})
 		for i := len(guo.hooks) - 1; i >= 0; i-- {
@@ -249,7 +261,7 @@ func (guo *GuildUpdateOne) sqlSave(ctx context.Context) (gu *Guild, err error) {
 	}
 	id, ok := guo.mutation.ID()
 	if !ok {
-		return nil, fmt.Errorf("missing Guild.ID for update")
+		return nil, &ValidationError{Name: "ID", err: fmt.Errorf("missing Guild.ID for update")}
 	}
 	_spec.Node.ID.Value = id
 	if value, ok := guo.mutation.UpdateTime(); ok {

@@ -86,31 +86,15 @@ func (cc *ChallengeCreate) SetNillableExpiresAt(t *time.Time) *ChallengeCreate {
 	return cc
 }
 
+// Mutation returns the ChallengeMutation object of the builder.
+func (cc *ChallengeCreate) Mutation() *ChallengeMutation {
+	return cc.mutation
+}
+
 // Save creates the Challenge in the database.
 func (cc *ChallengeCreate) Save(ctx context.Context) (*Challenge, error) {
-	if _, ok := cc.mutation.CreateTime(); !ok {
-		v := challenge.DefaultCreateTime()
-		cc.mutation.SetCreateTime(v)
-	}
-	if _, ok := cc.mutation.UpdateTime(); !ok {
-		v := challenge.DefaultUpdateTime()
-		cc.mutation.SetUpdateTime(v)
-	}
-	if _, ok := cc.mutation.ChallengeID(); !ok {
-		return nil, errors.New("ent: missing required field \"challenge_id\"")
-	}
-	if _, ok := cc.mutation.UserID(); !ok {
-		return nil, errors.New("ent: missing required field \"user_id\"")
-	}
-	if _, ok := cc.mutation.Human(); !ok {
-		return nil, errors.New("ent: missing required field \"human\"")
-	}
-	if _, ok := cc.mutation.Magic(); !ok {
-		return nil, errors.New("ent: missing required field \"magic\"")
-	}
-	if _, ok := cc.mutation.ExpiresAt(); !ok {
-		v := challenge.DefaultExpiresAt()
-		cc.mutation.SetExpiresAt(v)
+	if err := cc.preSave(); err != nil {
+		return nil, err
 	}
 	var (
 		err  error
@@ -126,6 +110,7 @@ func (cc *ChallengeCreate) Save(ctx context.Context) (*Challenge, error) {
 			}
 			cc.mutation = mutation
 			node, err = cc.sqlSave(ctx)
+			mutation.done = true
 			return node, err
 		})
 		for i := len(cc.hooks) - 1; i >= 0; i-- {
@@ -147,7 +132,48 @@ func (cc *ChallengeCreate) SaveX(ctx context.Context) *Challenge {
 	return v
 }
 
+func (cc *ChallengeCreate) preSave() error {
+	if _, ok := cc.mutation.CreateTime(); !ok {
+		v := challenge.DefaultCreateTime()
+		cc.mutation.SetCreateTime(v)
+	}
+	if _, ok := cc.mutation.UpdateTime(); !ok {
+		v := challenge.DefaultUpdateTime()
+		cc.mutation.SetUpdateTime(v)
+	}
+	if _, ok := cc.mutation.ChallengeID(); !ok {
+		return &ValidationError{Name: "challenge_id", err: errors.New("ent: missing required field \"challenge_id\"")}
+	}
+	if _, ok := cc.mutation.UserID(); !ok {
+		return &ValidationError{Name: "user_id", err: errors.New("ent: missing required field \"user_id\"")}
+	}
+	if _, ok := cc.mutation.Human(); !ok {
+		return &ValidationError{Name: "human", err: errors.New("ent: missing required field \"human\"")}
+	}
+	if _, ok := cc.mutation.Magic(); !ok {
+		return &ValidationError{Name: "magic", err: errors.New("ent: missing required field \"magic\"")}
+	}
+	if _, ok := cc.mutation.ExpiresAt(); !ok {
+		v := challenge.DefaultExpiresAt()
+		cc.mutation.SetExpiresAt(v)
+	}
+	return nil
+}
+
 func (cc *ChallengeCreate) sqlSave(ctx context.Context) (*Challenge, error) {
+	c, _spec := cc.createSpec()
+	if err := sqlgraph.CreateNode(ctx, cc.driver, _spec); err != nil {
+		if cerr, ok := isSQLConstraintError(err); ok {
+			err = cerr
+		}
+		return nil, err
+	}
+	id := _spec.ID.Value.(int64)
+	c.ID = int(id)
+	return c, nil
+}
+
+func (cc *ChallengeCreate) createSpec() (*Challenge, *sqlgraph.CreateSpec) {
 	var (
 		c     = &Challenge{config: cc.config}
 		_spec = &sqlgraph.CreateSpec{
@@ -214,13 +240,71 @@ func (cc *ChallengeCreate) sqlSave(ctx context.Context) (*Challenge, error) {
 		})
 		c.ExpiresAt = value
 	}
-	if err := sqlgraph.CreateNode(ctx, cc.driver, _spec); err != nil {
-		if cerr, ok := isSQLConstraintError(err); ok {
-			err = cerr
-		}
-		return nil, err
+	return c, _spec
+}
+
+// ChallengeCreateBulk is the builder for creating a bulk of Challenge entities.
+type ChallengeCreateBulk struct {
+	config
+	builders []*ChallengeCreate
+}
+
+// Save creates the Challenge entities in the database.
+func (ccb *ChallengeCreateBulk) Save(ctx context.Context) ([]*Challenge, error) {
+	specs := make([]*sqlgraph.CreateSpec, len(ccb.builders))
+	nodes := make([]*Challenge, len(ccb.builders))
+	mutators := make([]Mutator, len(ccb.builders))
+	for i := range ccb.builders {
+		func(i int, root context.Context) {
+			builder := ccb.builders[i]
+			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
+				if err := builder.preSave(); err != nil {
+					return nil, err
+				}
+				mutation, ok := m.(*ChallengeMutation)
+				if !ok {
+					return nil, fmt.Errorf("unexpected mutation type %T", m)
+				}
+				builder.mutation = mutation
+				nodes[i], specs[i] = builder.createSpec()
+				var err error
+				if i < len(mutators)-1 {
+					_, err = mutators[i+1].Mutate(root, ccb.builders[i+1].mutation)
+				} else {
+					// Invoke the actual operation on the latest mutation in the chain.
+					if err = sqlgraph.BatchCreate(ctx, ccb.driver, &sqlgraph.BatchCreateSpec{Nodes: specs}); err != nil {
+						if cerr, ok := isSQLConstraintError(err); ok {
+							err = cerr
+						}
+					}
+				}
+				mutation.done = true
+				if err != nil {
+					return nil, err
+				}
+				id := specs[i].ID.Value.(int64)
+				nodes[i].ID = int(id)
+				return nodes[i], nil
+			})
+			for i := len(builder.hooks) - 1; i >= 0; i-- {
+				mut = builder.hooks[i](mut)
+			}
+			mutators[i] = mut
+		}(i, ctx)
 	}
-	id := _spec.ID.Value.(int64)
-	c.ID = int(id)
-	return c, nil
+	if len(mutators) > 0 {
+		if _, err := mutators[0].Mutate(ctx, ccb.builders[0].mutation); err != nil {
+			return nil, err
+		}
+	}
+	return nodes, nil
+}
+
+// SaveX calls Save and panics if Save returns an error.
+func (ccb *ChallengeCreateBulk) SaveX(ctx context.Context) []*Challenge {
+	v, err := ccb.Save(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }

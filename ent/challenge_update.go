@@ -27,6 +27,11 @@ func (cu *ChallengeUpdate) Where(ps ...predicate.Challenge) *ChallengeUpdate {
 	return cu
 }
 
+// Mutation returns the ChallengeMutation object of the builder.
+func (cu *ChallengeUpdate) Mutation() *ChallengeMutation {
+	return cu.mutation
+}
+
 // Save executes the query and returns the number of rows/vertices matched by this operation.
 func (cu *ChallengeUpdate) Save(ctx context.Context) (int, error) {
 	if _, ok := cu.mutation.UpdateTime(); !ok {
@@ -47,6 +52,7 @@ func (cu *ChallengeUpdate) Save(ctx context.Context) (int, error) {
 			}
 			cu.mutation = mutation
 			affected, err = cu.sqlSave(ctx)
+			mutation.done = true
 			return affected, err
 		})
 		for i := len(cu.hooks) - 1; i >= 0; i-- {
@@ -124,6 +130,11 @@ type ChallengeUpdateOne struct {
 	mutation *ChallengeMutation
 }
 
+// Mutation returns the ChallengeMutation object of the builder.
+func (cuo *ChallengeUpdateOne) Mutation() *ChallengeMutation {
+	return cuo.mutation
+}
+
 // Save executes the query and returns the updated entity.
 func (cuo *ChallengeUpdateOne) Save(ctx context.Context) (*Challenge, error) {
 	if _, ok := cuo.mutation.UpdateTime(); !ok {
@@ -144,6 +155,7 @@ func (cuo *ChallengeUpdateOne) Save(ctx context.Context) (*Challenge, error) {
 			}
 			cuo.mutation = mutation
 			node, err = cuo.sqlSave(ctx)
+			mutation.done = true
 			return node, err
 		})
 		for i := len(cuo.hooks) - 1; i >= 0; i-- {
@@ -191,7 +203,7 @@ func (cuo *ChallengeUpdateOne) sqlSave(ctx context.Context) (c *Challenge, err e
 	}
 	id, ok := cuo.mutation.ID()
 	if !ok {
-		return nil, fmt.Errorf("missing Challenge.ID for update")
+		return nil, &ValidationError{Name: "ID", err: fmt.Errorf("missing Challenge.ID for update")}
 	}
 	_spec.Node.ID.Value = id
 	if value, ok := cuo.mutation.UpdateTime(); ok {
